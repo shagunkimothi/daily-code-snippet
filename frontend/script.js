@@ -1,6 +1,8 @@
 /* =========================
    INITIAL SETUP
 ========================= */
+const API_URL = "http://127.0.0.1:8000/snippets";
+
 const codeEl = document.getElementById("code");
 const titleEl = document.getElementById("title");
 const expEl = document.getElementById("explanation");
@@ -8,14 +10,40 @@ const langSelect = document.getElementById("language");
 const searchInput = document.getElementById("search");
 const toggleBtn = document.getElementById("themeToggle");
 
+let snippets = [];
+
 /* =========================
-   SNIPPET LOGIC
+   FETCH SNIPPETS (BACKEND)
+========================= */
+async function fetchSnippets() {
+  try {
+    const res = await fetch(API_URL);
+    snippets = await res.json();
+
+    if (!snippets.length) {
+      showEmptyState();
+      return;
+    }
+
+    renderSnippet();
+  } catch (err) {
+    console.error("Error fetching snippets:", err);
+    titleEl.innerText = "Backend not running";
+    codeEl.innerText = "// Start FastAPI server first";
+    expEl.innerText = "";
+  }
+}
+
+/* =========================
+   FILTERING LOGIC
 ========================= */
 function getFilteredSnippets(language = "All") {
   let filtered =
     language === "All"
       ? snippets
-      : snippets.filter(s => s.language === language);
+      : snippets.filter(
+          s => s.language.toLowerCase() === language.toLowerCase()
+        );
 
   const query = searchInput.value.toLowerCase();
   if (query) {
@@ -27,14 +55,14 @@ function getFilteredSnippets(language = "All") {
   return filtered;
 }
 
+/* =========================
+   RENDER SNIPPET
+========================= */
 function renderSnippet(language = "All") {
   const filtered = getFilteredSnippets(language);
 
-  if (filtered.length === 0) {
-    titleEl.innerText = "No snippet found";
-    codeEl.innerText = "// Try a different search or language";
-    expEl.innerText = "";
-    codeEl.className = "";
+  if (!filtered.length) {
+    showEmptyState();
     return;
   }
 
@@ -43,12 +71,20 @@ function renderSnippet(language = "All") {
 
   titleEl.innerText = snippet.title;
   codeEl.innerText = snippet.code;
-  expEl.innerText = snippet.explanation;
+  expEl.innerText = snippet.explanation || "";
 
-  codeEl.className =
-    "language-" + snippet.language.toLowerCase();
-
+  codeEl.className = `language-${snippet.language.toLowerCase()}`;
   Prism.highlightAll();
+}
+
+/* =========================
+   EMPTY STATE
+========================= */
+function showEmptyState() {
+  titleEl.innerText = "No snippets found";
+  codeEl.innerText = "// Try adding snippets from backend";
+  expEl.innerText = "";
+  codeEl.className = "";
 }
 
 /* =========================
@@ -72,7 +108,7 @@ document.getElementById("copyBtn").addEventListener("click", () => {
 });
 
 /* =========================
-   FAVORITES
+   FAVORITES (LOCAL)
 ========================= */
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
 
@@ -108,7 +144,7 @@ toggleBtn.addEventListener("click", () => {
    INIT
 ========================= */
 window.onload = () => {
-  renderSnippet();
+  fetchSnippets();
   document.getElementById("year").innerText =
     new Date().getFullYear();
 };
