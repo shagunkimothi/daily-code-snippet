@@ -1,0 +1,16 @@
+# Python virtual environment
+backend/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Database (will be auto-created later)
+backend/*.db
+
+# OS files
+.DS_Store
+Thumbs.db
