@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Daily Code Snippet</title>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="./style.css" />
+
+  <!-- Tailwind (utilities only) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Prism.js -->
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
+    rel="stylesheet"
+  />
+</head>
+
+<body class="min-h-screen flex items-center justify-center">
+
+  <div class="app space-y-4">
+
+    <!-- HEADER -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <h1 class="text-2xl font-bold">🧩 Daily Code Snippet</h1>
+      <button id="themeToggle" class="copy-btn">🌙</button>
+    </div>
+
+    <!-- SEARCH -->
+    <input
+      id="search"
+      type="text"
+      placeholder="Search snippet..."
+      class="w-full p-2 rounded bg-slate-800 text-white"
+    />
+
+    <!-- LANGUAGE FILTER -->
+    <select id="language">
+      <option>All</option>
+      <option>JavaScript</option>
+      <option>CSS</option>
+      <option>Python</option>
+      <option>HTML</option>
+      <option>C++</option>
+    </select>
+
+    <!-- SNIPPET CARD -->
+    <div class="snippet-card relative">
+
+      <h2 id="title" class="font-semibold mb-2"></h2>
+
+      <pre class="code-box">
+<code id="code" class="language-js"></code>
+      </pre>
+
+      <button id="copyBtn" class="copy-btn">Copy</button>
+      <button id="favBtn" class="copy-btn" style="right:4rem;">⭐</button>
+
+    </div>
+
+    <!-- EXPLANATION -->
+    <p id="explanation" class="text-sm text-gray-400"></p>
+
+    <!-- ACTION BUTTON -->
+    <button id="randomBtn" class="btn w-full">
+      🔀 New Snippet
+    </button>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>
+      © <span id="year"></span>
+      <strong>Shagun Kimothi</strong>. All rights reserved.
+    </p>
+  </footer>
+
+  <!-- SCRIPTS -->
+  <script src="./snippets.js"></script>
+  <script src="./script.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+
+</body>
+</html>
