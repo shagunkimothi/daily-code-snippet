@@ -3,139 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Daily Code Snippet</title>
 
-  <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <link
-    href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
 </head>
 
-<body class="min-h-screen bg-slate-900 text-white flex items-center justify-center px-4">
+<body class="min-h-screen bg-slate-900 text-white px-4">
 
-  <button 
-    id="themeToggle" 
-    class="copy-btn" 
-    style="position: fixed; top: 1.5rem; right: 1.5rem; z-index: 50; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;"
-  >
-    🌙
+<main class="max-w-3xl mx-auto space-y-4">
+<!-- Top bar -->
+<div class="flex justify-between items-center mb-4">
+  <h1 class="text-xl font-bold">🧩 Daily Code Snippet</h1>
+
+  <div class="flex items-center gap-4">
+    <button id="themeToggle" class="text-xl">🌙</button>
+    <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">
+      Logout
+    </button>
+  </div>
+</div>
+
+<input id="search" placeholder="Search snippet..." />
+<select id="language"></select>
+
+<div id="snippetBox">
+  <h2 id="title"></h2>
+  <pre><code id="code"></code></pre>
+  <p id="explanation"></p>
+
+  <div class="flex gap-2">
+    <button id="favoriteBtn">⭐</button>
+    <button id="copyBtn">Copy</button>
+  </div>
+</div>
+
+  <p id="statusMsg" class="text-gray-400 text-sm"></p>
+
+  <button id="randomBtn" class="w-full bg-indigo-600 p-2 rounded">
+    🔀 New Snippet
   </button>
 
-  <section
-    id="auth-screen"
-    class="w-full max-w-md bg-slate-800 p-6 rounded-lg space-y-4 shadow-xl"
-  >
-    <h1 class="text-2xl font-bold text-center">🧩 Daily Code Snippet</h1>
-    <p class="text-center text-gray-400">
-      Login to personalize your snippets
-    </p>
+</main>
 
-    <input
-      id="email"
-      class="w-full p-2 rounded bg-slate-700 outline-none border border-transparent focus:border-indigo-500 transition"
-      placeholder="Email"
-    />
+<footer class="text-center text-gray-400 text-sm mt-6">
+  © 2026 Shagun Kimothi
+</footer>
 
-    <input
-      id="password"
-      type="password"
-      class="w-full p-2 rounded bg-slate-700 outline-none border border-transparent focus:border-indigo-500 transition"
-      placeholder="Password"
-    />
-
-    <div class="flex gap-2">
-      <button
-        onclick="login()"
-        class="w-1/2 bg-indigo-600 hover:bg-indigo-700 p-2 rounded font-semibold transition"
-      >
-        Login
-      </button>
-
-      <button
-        onclick="signup()"
-        class="w-1/2 bg-green-600 hover:bg-green-700 p-2 rounded font-semibold transition"
-      >
-        Signup
-      </button>
-    </div>
-
-    <button
-      onclick="continueAsGuest()"
-      class="w-full bg-slate-700 hover:bg-slate-600 p-2 rounded transition"
-    >
-      Continue as Guest
-    </button>
-
-    <button
-      disabled
-      class="w-full bg-slate-900 p-2 rounded opacity-50 cursor-not-allowed"
-      title="Google login coming soon"
-    >
-      🔒 Sign in with Google (Coming Soon)
-    </button>
-  </section>
-
-  <section
-    id="app-screen"
-    class="hidden w-full max-w-2xl space-y-4"
-  >
-    <header class="flex justify-between items-center pr-16">
-      <h1 class="text-xl font-bold">🧩 Daily Code Snippet</h1>
-      
-      <div class="flex gap-2">
-        <button onclick="logout()" class="copy-btn bg-red-600 hover:bg-red-700 border-none">
-          Logout
-        </button>
-      </div>
-    </header>
-
-    <input
-      id="search"
-      class="w-full p-2 rounded bg-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
-      placeholder="Search snippet..."
-    />
-
-    <select id="language" class="w-full p-2 rounded bg-slate-800 outline-none cursor-pointer">
-      <option>All</option>
-      <option>JavaScript</option>
-      <option>CSS</option>
-      <option>Python</option>
-      <option>HTML</option>
-      <option>C++</option>
-    </select>
-
-    <div class="snippet-card bg-slate-800 p-4 rounded relative shadow-lg">
-      <h2 id="title" class="font-semibold mb-2 text-lg text-indigo-300"></h2>
-
-      <pre class="code-box rounded-md overflow-hidden" style="max-height: 400px;">
-<code id="code" class="language-js"></code>
-      </pre>
-
-      <button id="copyBtn" class="copy-btn top-4 right-4">Copy</button>
-      <button id="favBtn" class="copy-btn top-4 right-20">⭐</button>
-    </div>
-
-    <p id="explanation" class="text-gray-400 text-sm italic bg-slate-800 p-3 rounded"></p>
-
-    <button
-      id="randomBtn"
-      class="w-full bg-indigo-600 hover:bg-indigo-700 p-3 rounded font-bold shadow-md transition transform hover:scale-[1.01]"
-    >
-      🔀 New Snippet
-    </button>
-
-    <footer class="text-center text-gray-500 text-sm mt-6">
-      © <span id="year"></span> <strong>Shagun Kimothi</strong>
-    </footer>
-  </section>
-
-  <script src="./snippets.js"></script>
-  <script src="./script.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-
+<script src="./snippets.js"></script>
+<script src="./script.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 </body>
 </html>

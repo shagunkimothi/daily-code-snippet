@@ -1,7 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware # Added for OAuth sessions
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 from .database import engine, get_db
 from .models import Base, User, Snippet
@@ -12,7 +18,7 @@ from .schemas import (
     SnippetResponse,
 )
 from .security import hash_password, verify_password
-from .auth import create_access_token
+from .auth import create_access_token, oauth # Import oauth from auth.py
 from .dependencies import get_current_user
 
 # =========================
@@ -26,8 +32,11 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Daily Code Snippet API")
 
 # =========================
-# CORS
+# MIDDLEWARE
 # =========================
+
+# Added SessionMiddleware: Required for Google OAuth to track login state
+# ✅ CORS MUST COME FIRST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -38,6 +47,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ✅ Session middleware AFTER
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="any-random-secret-string"
+)
+
 
 # =========================
 # HEALTH
@@ -69,8 +85,55 @@ def get_snippets(db: Session = Depends(get_db)):
     return db.query(Snippet).all()
 
 # =========================
-# AUTH
+# AUTH (Existing & Google)
 # =========================
+
+# Added Google Login Route
+@app.get("/auth/google/login")
+async def google_login(request: Request):
+    # This redirects the user to Google's login page
+    redirect_uri = "http://127.0.0.1:8000/auth/google/callback"
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+# Added Google Callback Route
+@app.get("/auth/google/callback")
+async def google_callback(request: Request, db: Session = Depends(get_db)):
+    from fastapi.responses import RedirectResponse
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        
+        if not user_info:
+            raise HTTPException(status_code=400, detail="Google authentication failed")
+
+        email = user_info.get("email")
+        google_id = user_info.get("sub")
+
+        # Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+
+        if not user:
+            # Create new user for Google login
+            user = User(
+                email=email,
+                google_id=google_id,
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        # Create access token
+        access_token = create_access_token(
+            data={"sub": str(user.id), "email": user.email}
+        )
+
+        # Redirect back to frontend with the token in the URL
+        return RedirectResponse(url=f"http://127.0.0.1:5500/frontend/index.html?token={access_token}")
+    
+    except Exception as e:
+        return RedirectResponse(url="http://127.0.0.1:5500/frontend/auth.html?error=google_failed")
+
 @app.post("/auth/signup", response_model=UserResponse, status_code=201)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
@@ -117,8 +180,7 @@ def private_snippets(
     db: Session = Depends(get_db),
 ):
     return db.query(Snippet).all()
+
 @app.get("/snippets/public", response_model=list[SnippetResponse])
 def get_public_snippets(db: Session = Depends(get_db)):
-    # For now: return all snippets
-    # Later you can filter "public only"
     return db.query(Snippet).all()

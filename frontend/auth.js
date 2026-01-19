@@ -1,9 +1,8 @@
 const AUTH_API = "http://127.0.0.1:8000/auth";
 
-/* =========================
-   LOGIN
-========================= */
-async function login() {
+
+
+  async function login() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
@@ -12,69 +11,55 @@ async function login() {
     return;
   }
 
+  // ⬅️ MUST be form-urlencoded
+  const formData = new URLSearchParams();
+  formData.append("username", email); // backend expects "username"
+  formData.append("password", password);
+
   try {
-    const res = await fetch(`${AUTH_API}/login`, {
+    const res = await fetch("http://127.0.0.1:8000/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData,
     });
 
     const data = await res.json();
 
     if (!res.ok) {
-      alert(data.detail || "Login failed");
+      alert(data.detail || "Invalid email or password");
       return;
     }
 
-    // ✅ clear guest mode
+    // ✅ SUCCESS
+    localStorage.setItem("token", data.access_token);
     localStorage.removeItem("isGuest");
 
-    localStorage.setItem("token", data.access_token);
     window.location.href = "index.html";
   } catch (err) {
-    alert("Backend not reachable");
-    console.error(err);
+    console.error("Login error:", err);
+    alert("Login failed");
   }
 }
 
-/* =========================
-   SIGNUP
-========================= */
+
 async function signup() {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (!email || !password) {
-    alert("Email and password required");
-    return;
-  }
+  const res = await fetch(`${AUTH_API}/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
 
-  try {
-    const res = await fetch(`${AUTH_API}/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.detail || "Signup failed");
-      return;
-    }
-
-    alert("Signup successful. Please login.");
-  } catch (err) {
-    alert("Backend not reachable");
-    console.error(err);
-  }
+  if (res.ok) alert("Signup successful. Please login.");
+  else alert("Signup failed");
 }
 
-/* =========================
-   GUEST MODE
-========================= */
 function continueAsGuest() {
   localStorage.removeItem("token");
   localStorage.setItem("isGuest", "true");
-  window.location.href = "index.html";
+  window.location.replace("index.html");
 }
