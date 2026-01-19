@@ -1,6 +1,12 @@
 /* =====================
    RESET & BASE
 ===================== */
+/* =====================
+   UTILITIES (Fallback)
+===================== */
+.hidden {
+  display: none !important;
+}
 * {
   margin: 0;
   padding: 0;
@@ -201,5 +207,25 @@ body.light #explanation {
 }
 
 body.light .footer strong {
+  color: #020617;
+}
+/* Add this to style.css */
+.icon-btn {
+  background: #1f2937;
+  color: #e5e7eb;
+  font-size: 1.2rem; /* Made slightly bigger for header */
+  padding: 0.5rem;
+  border-radius: 0.4rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.icon-btn:hover {
+  background: #374151;
+}
+
+body.light .icon-btn {
+  background: #e5e7eb;
   color: #020617;
 }

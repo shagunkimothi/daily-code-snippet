@@ -1,150 +1,160 @@
 /* =========================
    INITIAL SETUP
 ========================= */
-const API_URL = "http://127.0.0.1:8000/snippets";
+// Auto redirect logic
 
-const codeEl = document.getElementById("code");
-const titleEl = document.getElementById("title");
-const expEl = document.getElementById("explanation");
-const langSelect = document.getElementById("language");
-const searchInput = document.getElementById("search");
+
+// script.js
+const AUTH_API = "http://127.0.0.1:8000/auth";
+
+/* =========================
+   DOM ELEMENTS
+========================= */
+const authScreen = document.getElementById("auth-screen");
+const appScreen = document.getElementById("app-screen");
 const toggleBtn = document.getElementById("themeToggle");
 
-let snippets = [];
-
 /* =========================
-   FETCH SNIPPETS (BACKEND)
+   UI HELPERS
 ========================= */
-async function fetchSnippets() {
-  try {
-    const res = await fetch(API_URL);
-    snippets = await res.json();
+function showAuth() {
+  authScreen.classList.remove("hidden");
+  appScreen.classList.add("hidden");
+}
 
-    if (!snippets.length) {
-      showEmptyState();
-      return;
-    }
-
-    renderSnippet();
-  } catch (err) {
-    console.error("Error fetching snippets:", err);
-    titleEl.innerText = "Backend not running";
-    codeEl.innerText = "// Start FastAPI server first";
-    expEl.innerText = "";
-  }
+function showApp() {
+  authScreen.classList.add("hidden");
+  appScreen.classList.remove("hidden");
 }
 
 /* =========================
-   FILTERING LOGIC
+   AUTH ACTIONS
 ========================= */
-function getFilteredSnippets(language = "All") {
-  let filtered =
-    language === "All"
-      ? snippets
-      : snippets.filter(
-          s => s.language.toLowerCase() === language.toLowerCase()
-        );
+async function login() {
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
 
-  const query = searchInput.value.toLowerCase();
-  if (query) {
-    filtered = filtered.filter(s =>
-      s.title.toLowerCase().includes(query)
-    );
-  }
+  const email = emailInput.value.trim();
+  const password = passwordInput.value.trim();
 
-  return filtered;
-}
-
-/* =========================
-   RENDER SNIPPET
-========================= */
-function renderSnippet(language = "All") {
-  const filtered = getFilteredSnippets(language);
-
-  if (!filtered.length) {
-    showEmptyState();
+  if (!email || !password) {
+    alert("Email and password required");
     return;
   }
 
-  const snippet =
-    filtered[Math.floor(Math.random() * filtered.length)];
+  // FIX 1: Use URLSearchParams instead of JSON
+  const formData = new URLSearchParams();
+  formData.append("username", email); // Backend expects 'username', so we map email to it
+  formData.append("password", password);
 
-  titleEl.innerText = snippet.title;
-  codeEl.innerText = snippet.code;
-  expEl.innerText = snippet.explanation || "";
+  try {
+    const res = await fetch("http://127.0.0.1:8000/auth/login", {
+      method: "POST",
+      headers: {
+        // FIX 2: Correct Content-Type for FastAPI Login
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData, // Send form data object directly
+    });
 
-  codeEl.className = `language-${snippet.language.toLowerCase()}`;
-  Prism.highlightAll();
-}
+    const data = await res.json();
 
-/* =========================
-   EMPTY STATE
-========================= */
-function showEmptyState() {
-  titleEl.innerText = "No snippets found";
-  codeEl.innerText = "// Try adding snippets from backend";
-  expEl.innerText = "";
-  codeEl.className = "";
-}
+    if (!res.ok) {
+      alert(data.detail || "Login failed");
+      return;
+    }
 
-/* =========================
-   EVENTS
-========================= */
-document.getElementById("randomBtn").addEventListener("click", () => {
-  renderSnippet(langSelect.value);
-});
-
-searchInput.addEventListener("input", () => {
-  renderSnippet(langSelect.value);
-});
-
-langSelect.addEventListener("change", () => {
-  renderSnippet(langSelect.value);
-});
-
-document.getElementById("copyBtn").addEventListener("click", () => {
-  navigator.clipboard.writeText(codeEl.innerText);
-  alert("Copied!");
-});
-
-/* =========================
-   FAVORITES (LOCAL)
-========================= */
-let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
-
-document.getElementById("favBtn").addEventListener("click", () => {
-  const currentTitle = titleEl.innerText;
-
-  if (!favorites.includes(currentTitle)) {
-    favorites.push(currentTitle);
-    localStorage.setItem("favorites", JSON.stringify(favorites));
-    alert("⭐ Added to favorites");
-  } else {
-    alert("Already in favorites");
+    // ✅ LOGIN SUCCESS
+    localStorage.setItem("token", data.access_token);
+    
+    // Clear guest mode if it was active
+    localStorage.removeItem("isGuest"); 
+    
+    showApp();
+    loadSnippets();
+    
+  } catch (error) {
+    console.error("Login Error:", error);
+    alert("An error occurred during login.");
   }
-});
+}
+
+async function signup() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  if (!email || !password) {
+    alert("Email and password are required");
+    return;
+  }
+
+  const res = await fetch(`${AUTH_API}/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  if (res.ok) {
+    alert("Signup successful. Please login.");
+  } else {
+    const err = await res.json();
+    alert(err.detail || "Signup failed");
+  }
+}
+
+function continueAsGuest() {
+  localStorage.removeItem("token");
+  localStorage.setItem("isGuest", "true"); // <--- ADD THIS LINE
+  showApp();
+  loadSnippets(); 
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  // ADD THIS LINE:
+  localStorage.removeItem("isGuest");
+  showAuth();
+}
 
 /* =========================
    THEME (PERSISTENT)
 ========================= */
 const savedTheme = localStorage.getItem("theme");
+
 if (savedTheme === "light") {
   document.body.classList.add("light");
   toggleBtn.textContent = "🌞";
 }
 
-toggleBtn.addEventListener("click", () => {
+toggleBtn.onclick = () => {
   document.body.classList.toggle("light");
   const isLight = document.body.classList.contains("light");
   toggleBtn.textContent = isLight ? "🌞" : "🌙";
   localStorage.setItem("theme", isLight ? "light" : "dark");
-});
+};
 
 /* =========================
    INIT
 ========================= */
+/* =========================
+   INIT
+========================= */
+/* =========================
+   INIT
+========================= */
 window.onload = () => {
-  fetchSnippets();
-  document.getElementById("year").innerText =
-    new Date().getFullYear();
+  document.getElementById("year").innerText = new Date().getFullYear();
+
+  const token = localStorage.getItem("token");
+  // ADD THIS LINE:
+  const isGuest = localStorage.getItem("isGuest");
+
+  // CHECK BOTH CONDITIONS:
+  if (token || isGuest === "true") {
+    showApp();
+    // Load snippets (logic handles public/private inside loadSnippets)
+    loadSnippets(); 
+  } else {
+    showAuth();
+  }
 };

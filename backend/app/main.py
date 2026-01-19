@@ -117,3 +117,8 @@ def private_snippets(
     db: Session = Depends(get_db),
 ):
     return db.query(Snippet).all()
+@app.get("/snippets/public", response_model=list[SnippetResponse])
+def get_public_snippets(db: Session = Depends(get_db)):
+    # For now: return all snippets
+    # Later you can filter "public only"
+    return db.query(Snippet).all()
