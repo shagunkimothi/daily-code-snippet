@@ -3,6 +3,7 @@
 ========================= */
 const PUBLIC_API = "http://127.0.0.1:8000/snippets/public";
 const PRIVATE_API = "http://127.0.0.1:8000/snippets/private";
+const ADD_API = "http://127.0.0.1:8000/snippets/add";
 
 let allSnippets = [];
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
@@ -53,18 +54,12 @@ async function loadSnippets() {
   const isGuest = localStorage.getItem("isGuest") === "true";
 
   let dbSnippets = [];
+  const endpoint = token ? PRIVATE_API : PUBLIC_API;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-  if (token) {
-    const res = await fetch("http://127.0.0.1:8000/snippets/private", {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    dbSnippets = await res.json();
-  }
-
-  // Merge guest + db snippets
-  const allSnippets = [...GUEST_SNIPPETS, ...dbSnippets];
-
-  renderSnippets(allSnippets);
+  const res = await fetch(endpoint, { headers });
+  dbSnippets = await res.json();
+  renderSnippets(dbSnippets);
 }
 
 /* =========================
@@ -79,6 +74,7 @@ function renderSnippets(snippets) {
   const titleEl = document.getElementById("snippetTitle");
   const codeEl = document.getElementById("snippetCode");
   const explEl = document.getElementById("snippetExplanation");
+  const langEl = document.getElementById("snippetLang");
 
   // Filter
   const filtered = allSnippets.filter(s => {
@@ -92,6 +88,7 @@ function renderSnippets(snippets) {
     titleEl.innerText = "No snippets found";
     codeEl.innerText = "// Try changing your search filters";
     explEl.innerText = "";
+    langEl.innerText = "";
     return;
   }
 
@@ -102,6 +99,7 @@ function renderSnippets(snippets) {
   titleEl.innerText = snippet.title;
   codeEl.textContent = snippet.code;
   explEl.innerText = snippet.explanation || "";
+  langEl.innerText = `${snippet.language} • ${snippet.is_public ? "Public" : "Private"}`;
   
   // Highlight
   codeEl.className = `language-${snippet.language.toLowerCase()}`;
@@ -111,9 +109,11 @@ function renderSnippets(snippets) {
 /* =========================
    5. EVENTS (Buttons & Actions)
 ========================= */
-document.getElementById("randomBtn").onclick = renderSnippets;
-document.getElementById("search").oninput = renderSnippets;
-document.getElementById("language").onchange = renderSnippets;
+document.getElementById("randomBtn").onclick = () => {
+  loadSnippets();
+};
+document.getElementById("search").oninput = () => renderSnippets(allSnippets);
+document.getElementById("language").onchange = () => renderSnippets(allSnippets);
 
 document.getElementById("copyBtn").onclick = () => {
   navigator.clipboard.writeText(document.getElementById("snippetCode").textContent);
@@ -134,14 +134,16 @@ document.getElementById("saveSnippetBtn").onclick = async () => {
 
   if (!title || !code) return alert("Title and Code are required.");
 
+  const isPublic = document.getElementById("newVisibility").checked;
+
   try {
-    const res = await fetch(PRIVATE_API, {
+    const res = await fetch(ADD_API, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({ title, language, code, explanation })
+      body: JSON.stringify({ title, language, code, explanation, is_public: isPublic })
     });
 
     if (res.ok) {
@@ -152,6 +154,7 @@ document.getElementById("saveSnippetBtn").onclick = async () => {
       document.getElementById("newTitle").value = "";
       document.getElementById("newCode").value = "";
       document.getElementById("newExpl").value = "";
+      document.getElementById("newVisibility").checked = true;
     } else {
       alert("Failed to save.");
     }
