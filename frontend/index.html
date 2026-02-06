@@ -4,54 +4,80 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Code Snippet</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
 </head>
+<body>
 
-<body class="min-h-screen bg-slate-900 text-white px-4">
+<div class="app-container">
+  
+  <header>
+    <h2>🧩 Daily Code Snippet</h2>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="btn-icon" id="themeToggle" title="Toggle Theme">🌙</button>
+      <button class="btn-secondary" id="logoutBtn">Logout</button>
+    </div>
+  </header>
 
-<main class="max-w-3xl mx-auto space-y-4">
-<!-- Top bar -->
-<div class="flex justify-between items-center mb-4">
-  <h1 class="text-xl font-bold">🧩 Daily Code Snippet</h1>
+  <main>
+    <div class="controls">
+      <input id="search" placeholder="Search snippets by title..." />
+      <select id="language">
+        <option value="All">All Languages</option>
+        <option value="Python">Python</option>
+        <option value="JavaScript">JavaScript</option>
+        <option value="Java">Java</option>
+        <option value="C++">C++</option>
+      </select>
+    </div>
 
-  <div class="flex items-center gap-4">
-    <button id="themeToggle" class="text-xl">🌙</button>
-    <button onclick="logout()" class="text-sm opacity-80 hover:opacity-100">
-      Logout
-    </button>
+    <div class="snippet-card">
+      <div class="snippet-header">
+        <h3 id="snippetTitle">Loading...</h3>
+        <span id="snippetLang" class="snippet-meta">...</span>
+      </div>
+
+      <pre><code id="snippetCode" class="language-javascript">console.log("Loading...");</code></pre>
+      <p id="snippetExplanation" class="explanation">Fetching data...</p>
+
+      <div class="actions">
+        <button class="btn-primary" id="randomBtn">🎲 New Random Snippet</button>
+        <button class="btn-icon" id="copyBtn" title="Copy Code">📋</button>
+        <button class="btn-icon" id="favBtn" title="Favorite">⭐</button>
+      </div>
+    </div>
+
+    <br>
+    <button class="btn-secondary" style="width:100%" id="openModalBtn">➕ Add Your Own Snippet</button>
+  </main>
+
+</div>
+
+<div class="modal" id="addModal">
+  <div class="modal-content">
+    <h2>Add New Snippet</h2>
+    <br>
+    <input id="newTitle" placeholder="Snippet Title" />
+    <select id="newLang">
+      <option value="Python">Python</option>
+      <option value="JavaScript">JavaScript</option>
+      <option value="Java">Java</option>
+      <option value="C++">C++</option>
+    </select>
+    <textarea id="newCode" rows="6" placeholder="Paste your code here..."></textarea>
+    <textarea id="newExpl" rows="3" placeholder="Brief explanation..."></textarea>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="closeModalBtn">Cancel</button>
+      <button class="btn-primary" id="saveSnippetBtn">Save Snippet</button>
+    </div>
   </div>
 </div>
 
-<input id="search" placeholder="Search snippet..." />
-<select id="language"></select>
-
-<div id="snippetBox">
-  <h2 id="title"></h2>
-  <pre><code id="code"></code></pre>
-  <p id="explanation"></p>
-
-  <div class="flex gap-2">
-    <button id="favoriteBtn">⭐</button>
-    <button id="copyBtn">Copy</button>
-  </div>
-</div>
-
-  <p id="statusMsg" class="text-gray-400 text-sm"></p>
-
-  <button id="randomBtn" class="w-full bg-indigo-600 p-2 rounded">
-    🔀 New Snippet
-  </button>
-
-</main>
-
-<footer class="text-center text-gray-400 text-sm mt-6">
-  © 2026 Shagun Kimothi
-</footer>
-
-<script src="./snippets.js"></script>
-<script src="./script.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+<script src="script.js"></script>
+<script src="snippets.js"></script>
+
 </body>
 </html>

@@ -1,65 +1,102 @@
 const AUTH_API = "http://127.0.0.1:8000/auth";
 
+/* =========================
+   1. AUTH GUARD
+   Redirects logged-in users to Index
+========================= */
+(function () {
+  const token = localStorage.getItem("token");
+  const isGuest = localStorage.getItem("isGuest");
 
-
-  async function login() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-
-  if (!email || !password) {
-    alert("Email and password required");
-    return;
+  // Only run this check if we are actually ON the auth page
+  if (window.location.pathname.includes("auth.html")) {
+    // If logged in (and didn't just click 'Back'), go to app
+    if (token || isGuest) {
+      const navEntry = performance.getEntriesByType("navigation")[0];
+      if (navEntry && navEntry.type !== "back_forward") {
+         window.location.replace("index.html");
+      }
+    }
   }
+})();
 
-  // ⬅️ MUST be form-urlencoded
-  const formData = new URLSearchParams();
-  formData.append("username", email); // backend expects "username"
-  formData.append("password", password);
+/* =========================
+   2. LOGIN (Fixed Error Handling)
+========================= */
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) return alert("Please fill in all fields");
 
   try {
-    const res = await fetch("http://127.0.0.1:8000/auth/login", {
+    const res = await fetch(`${AUTH_API}/login`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username: email, password })
     });
 
-    const data = await res.json();
-
+    // CRITICAL FIX: Check for server errors (HTML responses) before parsing JSON
     if (!res.ok) {
-      alert(data.detail || "Invalid email or password");
-      return;
+      const text = await res.text(); // Read as text first
+      try {
+        const json = JSON.parse(text); // Try to parse as JSON
+        throw new Error(json.detail || "Login failed");
+      } catch (e) {
+        // If it wasn't JSON, it was likely an HTML error page (500/404)
+        console.error("Server Error HTML:", text);
+        throw new Error(`Server Error (${res.status}). Check console.`);
+      }
     }
 
-    // ✅ SUCCESS
+    const data = await res.json();
     localStorage.setItem("token", data.access_token);
     localStorage.removeItem("isGuest");
-
     window.location.href = "index.html";
+
   } catch (err) {
-    console.error("Login error:", err);
-    alert("Login failed");
+    alert(err.message);
   }
 }
 
-
+/* =========================
+   3. SIGNUP
+========================= */
 async function signup() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-  const res = await fetch(`${AUTH_API}/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
-  });
+  if (!email || !password) return alert("Please fill in all fields");
 
-  if (res.ok) alert("Signup successful. Please login.");
-  else alert("Signup failed");
+  try {
+    const res = await fetch(`${AUTH_API}/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        throw new Error(json.detail || "Signup failed");
+      } catch {
+        throw new Error(`Server Error (${res.status})`);
+      }
+    }
+
+    alert("Signup successful! Please log in.");
+    
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
+/* =========================
+   4. GUEST MODE
+========================= */
 function continueAsGuest() {
-  localStorage.removeItem("token");
   localStorage.setItem("isGuest", "true");
-  window.location.replace("index.html");
+  localStorage.removeItem("token");
+  window.location.href = "index.html";
 }

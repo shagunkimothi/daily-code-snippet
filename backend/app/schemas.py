@@ -1,13 +1,12 @@
 from pydantic import BaseModel
 
-# =========================
-# SNIPPET SCHEMAS
-# =========================
+
 class SnippetCreate(BaseModel):
     title: str
     language: str
     code: str
     explanation: str | None = None
+    is_public: bool = True
 
 
 class SnippetResponse(BaseModel):
@@ -15,7 +14,8 @@ class SnippetResponse(BaseModel):
     title: str
     language: str
     code: str
-    explanation: str | None = None
+    explanation: str | None
+    is_public: bool
 
     class Config:
         from_attributes = True

@@ -1,186 +1,147 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+import os
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from starlette.middleware.sessions import SessionMiddleware # Added for OAuth sessions
-import os
-from dotenv import load_dotenv
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse
 
-load_dotenv()
+from app.database import engine, get_db
+from app.models import User, Snippet
+from app.schemas import UserCreate, UserResponse, SnippetCreate, SnippetResponse
+from app.security import hash_password, verify_password
+from app.auth import create_access_token, oauth
+from app.dependencies import get_current_user
+from app import models
 
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-from .database import engine, get_db
-from .models import Base, User, Snippet
-from .schemas import (
-    UserCreate,
-    UserResponse,
-    SnippetCreate,
-    SnippetResponse,
-)
-from .security import hash_password, verify_password
-from .auth import create_access_token, oauth # Import oauth from auth.py
-from .dependencies import get_current_user
+models.Base.metadata.create_all(bind=engine)
 
-# =========================
-# DATABASE
-# =========================
-Base.metadata.create_all(bind=engine)
-
-# =========================
-# APP
-# =========================
 app = FastAPI(title="Daily Code Snippet API")
 
-# =========================
-# MIDDLEWARE
-# =========================
-
-# Added SessionMiddleware: Required for Google OAuth to track login state
-# ✅ CORS MUST COME FIRST
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5500",
-    ],
+    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Session middleware AFTER
 app.add_middleware(
     SessionMiddleware,
-    secret_key="any-random-secret-string"
+    secret_key="dev-session-secret",
 )
 
-
-# =========================
-# HEALTH
-# =========================
-@app.get("/")
-def root():
-    return {"message": "Backend is running 🚀"}
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-# =========================
-# SNIPPETS (PUBLIC)
-# =========================
-@app.post("/snippets")
-def create_snippet(
-    snippet: SnippetCreate,
-    db: Session = Depends(get_db),
-):
-    new_snippet = Snippet(**snippet.dict())
-    db.add(new_snippet)
-    db.commit()
-    db.refresh(new_snippet)
-    return {"message": "Snippet created", "id": new_snippet.id}
-
-@app.get("/snippets", response_model=list[SnippetResponse])
-def get_snippets(db: Session = Depends(get_db)):
-    return db.query(Snippet).all()
-
-# =========================
-# AUTH (Existing & Google)
-# =========================
-
-# Added Google Login Route
-@app.get("/auth/google/login")
-async def google_login(request: Request):
-    # This redirects the user to Google's login page
-    redirect_uri = "http://127.0.0.1:8000/auth/google/callback"
-    return await oauth.google.authorize_redirect(request, redirect_uri)
-
-# Added Google Callback Route
-@app.get("/auth/google/callback")
-async def google_callback(request: Request, db: Session = Depends(get_db)):
-    from fastapi.responses import RedirectResponse
-    try:
-        token = await oauth.google.authorize_access_token(request)
-        user_info = token.get('userinfo')
-        
-        if not user_info:
-            raise HTTPException(status_code=400, detail="Google authentication failed")
-
-        email = user_info.get("email")
-        google_id = user_info.get("sub")
-
-        # Check if user exists
-        user = db.query(User).filter(User.email == email).first()
-
-        if not user:
-            # Create new user for Google login
-            user = User(
-                email=email,
-                google_id=google_id,
-                is_active=True
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-
-        # Create access token
-        access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email}
-        )
-
-        # Redirect back to frontend with the token in the URL
-        return RedirectResponse(url=f"http://127.0.0.1:5500/frontend/index.html?token={access_token}")
-    
-    except Exception as e:
-        return RedirectResponse(url="http://127.0.0.1:5500/frontend/auth.html?error=google_failed")
+# ---------- AUTH ----------
 
 @app.post("/auth/signup", response_model=UserResponse, status_code=201)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(400, "Email already registered")
 
     new_user = User(
         email=user.email,
         hashed_password=hash_password(user.password),
     )
-
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
 
+
 @app.post("/auth/login")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
+    json_data: dict = Body(None),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    # 1️⃣ Get credentials safely from either source
+    email = None
+    password = None
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if form_data and form_data.username:
+        email = form_data.username
+        password = form_data.password
+    elif json_data:
+        email = json_data.get("email")
+        password = json_data.get("password")
+
+    if not email or not password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid login credentials",
+        )
+
+    # 2️⃣ Authenticate
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    token = create_access_token(
+    # 3️⃣ Create token
+    access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email}
     )
 
     return {
-        "access_token": token,
+        "access_token": access_token,
         "token_type": "bearer",
     }
 
-# =========================
-# PROTECTED
-# =========================
-@app.get("/snippets/private")
-def private_snippets(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return db.query(Snippet).all()
+
+@app.get("/auth/google/login")
+async def google_login(request: Request):
+    return await oauth.google.authorize_redirect(
+        request, "http://127.0.0.1:8000/auth/google/callback"
+    )
+
+
+@app.get("/auth/google/callback")
+async def google_callback(request: Request, db: Session = Depends(get_db)):
+    token = await oauth.google.authorize_access_token(request)
+    info = token.get("userinfo")
+
+    user = db.query(User).filter(User.email == info["email"]).first()
+    if not user:
+        user = User(email=info["email"], google_id=info["sub"])
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
+    return RedirectResponse(
+        f"http://127.0.0.1:5500/frontend/index.html?token={jwt_token}"
+    )
+
+# ---------- SNIPPETS ----------
 
 @app.get("/snippets/public", response_model=list[SnippetResponse])
-def get_public_snippets(db: Session = Depends(get_db)):
-    return db.query(Snippet).all()
+def public_snippets(db: Session = Depends(get_db)):
+    return db.query(Snippet).filter(Snippet.is_public == True).all()
+
+
+@app.get("/snippets/private", response_model=list[SnippetResponse])
+def private_snippets(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return db.query(Snippet).filter(
+        (Snippet.is_public == True) | (Snippet.owner_id == user.id)
+    ).all()
+
+
+@app.post("/snippets/add", response_model=SnippetResponse, status_code=201)
+def add_snippet(
+    snippet: SnippetCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    new_snippet = Snippet(**snippet.dict(), owner_id=user.id)
+    db.add(new_snippet)
+    db.commit()
+    db.refresh(new_snippet)
+    return new_snippet
