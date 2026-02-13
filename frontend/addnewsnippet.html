@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snippet Gallery - Daily Code Snippet</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo-area">
+                <h1>📚 All Snippets</h1>
+                <p>Viewing snippets directly from the database</p>
+            </div>
+            <div class="header-actions">
+                <a href="index.html" class="btn-secondary" style="text-decoration: none;">🏠 Home</a>
+                <button class="btn-icon" id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <main id="snippetGallery">
+            <div id="loader" class="explanation">Fetching snippets from database...</div>
+            <div id="galleryList"></div>
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="snippet.js"></script>
+</body>
+</html>
