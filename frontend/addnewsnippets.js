@@ -6,12 +6,14 @@ const PRIVATE_API = "http://127.0.0.1:8000/snippets/private";
 const ADD_API = "http://127.0.0.1:8000/snippets/add";
 
 let allSnippets = [];
+let currentSnippet = null;
+
 // Phase 5: Initialize favorites from LocalStorage
 let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
 
+
 /* =========================
-   2. AUTH HANDLER (RUNS IMMEDIATELY)
-   Catches Google Redirects & Guest Mode
+   2. AUTH HANDLER
 ========================= */
 (function handleAuth() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -38,6 +40,7 @@ let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
   }
 })();
 
+
 /* =========================
    3. DATA FETCHING
 ========================= */
@@ -52,26 +55,29 @@ async function loadSnippets() {
 
   try {
     const res = await fetch(endpoint, { headers });
+
+    if (!res.ok) {
+      console.error("Failed API:", res.status);
+      return;
+    }
+
     const dbSnippets = await res.json();
-    renderSnippets(dbSnippets);
+    allSnippets = dbSnippets;
+    showRandomSnippet();
+
   } catch (err) {
     console.error("Failed to load snippets:", err);
   }
 }
 
+
 /* =========================
    4. RENDERING LOGIC
 ========================= */
-function renderSnippets(snippets) {
-  allSnippets = snippets;
+function showRandomSnippet() {
 
   const searchVal = document.getElementById("search").value.toLowerCase();
   const langVal = document.getElementById("language").value;
-  const titleEl = document.getElementById("snippetTitle");
-  const codeEl = document.getElementById("snippetCode");
-  const explEl = document.getElementById("snippetExplanation");
-  const langEl = document.getElementById("snippetLang");
-  const favBtn = document.getElementById("favBtn");
 
   const filtered = allSnippets.filter(s => {
     const matchesLang = langVal === "All" || s.language === langVal;
@@ -79,86 +85,99 @@ function renderSnippets(snippets) {
     return matchesLang && matchesSearch;
   });
 
+  const titleEl = document.getElementById("snippetTitle");
+  const codeEl = document.getElementById("snippetCode");
+  const explEl = document.getElementById("snippetExplanation");
+  const langEl = document.getElementById("snippetLang");
+  const favBtn = document.getElementById("favBtn");
+
   if (filtered.length === 0) {
     titleEl.innerText = "No snippets found";
-    codeEl.innerText = "// Try changing your search filters";
+    codeEl.innerText = "// Try changing filters";
     explEl.innerText = "";
     langEl.innerText = "";
-    favBtn.style.display = "none"; // Hide star if no snippet
+    favBtn.style.display = "none";
     return;
   }
 
   favBtn.style.display = "inline-block";
-  const snippet = filtered[Math.floor(Math.random() * filtered.length)];
 
-  // Update DOM
-  titleEl.innerText = snippet.title;
-  codeEl.textContent = snippet.code;
-  explEl.innerText = snippet.explanation || "";
-  langEl.innerText = `${snippet.language} • ${snippet.is_public ? "Public" : "Private"}`;
-  
-  // Phase 5: Update Favorite Button State
-  favBtn.dataset.id = snippet.id;
-  const isFav = favorites.some(f => f.id === snippet.id);
-  favBtn.innerText = isFav ? "⭐" : "☆";
+  currentSnippet = filtered[Math.floor(Math.random() * filtered.length)];
 
-  // Highlight
-  codeEl.className = `language-${snippet.language.toLowerCase()}`;
+  titleEl.innerText = currentSnippet.title;
+  codeEl.textContent = currentSnippet.code;
+  explEl.innerText = currentSnippet.explanation || "";
+  langEl.innerText = `${currentSnippet.language} • ${currentSnippet.is_public ? "Public" : "Private"}`;
+
+  updateFavoriteIcon();
+
+  codeEl.className = `language-${currentSnippet.language.toLowerCase()}`;
   if (window.Prism) Prism.highlightElement(codeEl);
 }
 
+
 /* =========================
-   5. EVENTS (Buttons & Actions)
+   5. FAVORITE HANDLING
 ========================= */
-document.getElementById("randomBtn").onclick = () => {
-  renderSnippets(allSnippets); // Just re-render from existing list for speed
+function updateFavoriteIcon() {
+  const favBtn = document.getElementById("favBtn");
+  if (!currentSnippet) return;
+
+  const isFav = favorites.some(f => f.id === currentSnippet.id);
+  favBtn.innerText = isFav ? "⭐" : "☆";
+}
+
+document.getElementById("favBtn").onclick = () => {
+  if (!currentSnippet) return;
+
+  const favIndex = favorites.findIndex(f => f.id === currentSnippet.id);
+
+  if (favIndex > -1) {
+    favorites.splice(favIndex, 1);
+  } else {
+    favorites.push(currentSnippet);
+  }
+
+  localStorage.setItem("favorites", JSON.stringify(favorites));
+  updateFavoriteIcon();
 };
 
-document.getElementById("search").oninput = () => renderSnippets(allSnippets);
-document.getElementById("language").onchange = () => renderSnippets(allSnippets);
+
+/* =========================
+   6. BUTTON EVENTS
+========================= */
+document.getElementById("randomBtn").onclick = showRandomSnippet;
+document.getElementById("search").oninput = showRandomSnippet;
+document.getElementById("language").onchange = showRandomSnippet;
 
 document.getElementById("copyBtn").onclick = () => {
-  navigator.clipboard.writeText(document.getElementById("snippetCode").textContent);
+  navigator.clipboard.writeText(
+    document.getElementById("snippetCode").textContent
+  );
   alert("Code copied!");
 };
 
-// Phase 5: Toggle Favorite Click Handler
-document.getElementById("favBtn").onclick = (e) => {
-  const currentId = parseInt(e.target.dataset.id);
-  const snippet = allSnippets.find(s => s.id === currentId);
-  
-  if (!snippet) return;
 
-  const favIndex = favorites.findIndex(f => f.id === currentId);
-
-  if (favIndex > -1) {
-    // Remove if already favorited
-    favorites.splice(favIndex, 1);
-    e.target.innerText = "☆";
-  } else {
-    // Add to favorites
-    favorites.push(snippet);
-    e.target.innerText = "⭐";
-  }
-
-  // Save to LocalStorage
-  localStorage.setItem("favorites", JSON.stringify(favorites));
-};
-
+/* =========================
+   7. SAVE NEW SNIPPET
+========================= */
 document.getElementById("saveSnippetBtn").onclick = async () => {
+
   const token = localStorage.getItem("token");
-  
+
   if (!token) {
     return alert("Guest mode is read-only. Please Login to save snippets.");
   }
 
-  const title = document.getElementById("newTitle").value;
+  const title = document.getElementById("newTitle").value.trim();
   const language = document.getElementById("newLang").value;
-  const code = document.getElementById("newCode").value;
-  const explanation = document.getElementById("newExpl").value;
+  const code = document.getElementById("newCode").value.trim();
+  const explanation = document.getElementById("newExpl").value.trim();
   const isPublic = document.getElementById("newVisibility").checked;
 
-  if (!title || !code) return alert("Title and Code are required.");
+  if (!title || !code) {
+    return alert("Title and Code are required.");
+  }
 
   try {
     const res = await fetch(ADD_API, {
@@ -167,21 +186,31 @@ document.getElementById("saveSnippetBtn").onclick = async () => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({ title, language, code, explanation, is_public: isPublic })
+      body: JSON.stringify({
+        title,
+        language,
+        code,
+        explanation,
+        is_public: isPublic
+      })
     });
 
-    if (res.ok) {
-      alert("Snippet saved!");
-      document.getElementById("addModal").classList.remove("active");
-      loadSnippets(); 
-      // Reset inputs
-      document.getElementById("newTitle").value = "";
-      document.getElementById("newCode").value = "";
-      document.getElementById("newExpl").value = "";
-      document.getElementById("newVisibility").checked = true;
-    } else {
-      alert("Failed to save.");
+    if (!res.ok) {
+      alert("Failed to save snippet.");
+      return;
     }
+
+    alert("Snippet saved successfully!");
+
+    document.getElementById("addModal").classList.remove("active");
+
+    document.getElementById("newTitle").value = "";
+    document.getElementById("newCode").value = "";
+    document.getElementById("newExpl").value = "";
+    document.getElementById("newVisibility").checked = true;
+
+    await loadSnippets();
+
   } catch (err) {
     alert("Server error.");
   }

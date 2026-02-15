@@ -1,33 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Snippet Gallery - Daily Code Snippet</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Snippet</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="app-container">
-        <header>
-            <div class="logo-area">
-                <h1>📚 All Snippets</h1>
-                <p>Viewing snippets directly from the database</p>
-            </div>
-            <div class="header-actions">
-                <a href="index.html" class="btn-secondary" style="text-decoration: none;">🏠 Home</a>
-                <button class="btn-icon" id="themeToggle">🌙</button>
-            </div>
-        </header>
 
-        <main id="snippetGallery">
-            <div id="loader" class="explanation">Fetching snippets from database...</div>
-            <div id="galleryList"></div>
-        </main>
-    </div>
+<div class="app-container">
+  
+  <header class="page-header">
+    <h1>Add to Library</h1>
+    <button onclick="goBack()" class="btn-secondary">Go Back</button>
+  </header>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-    <script src="snippet.js"></script>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="manual">Manual Entry</button>
+    <button class="tab-btn" data-tab="ai">✨ AI Magic</button>
+    <button class="tab-btn" data-tab="import">📥 Bulk Import</button>
+  </div>
+
+  <!-- MANUAL -->
+  <div id="manual" class="tab-content active">
+    <form id="snippetForm" class="snippet-form">
+      
+      <input type="text" id="title" placeholder="Snippet Title" required />
+
+      <select id="language">
+        <option value="javascript">JavaScript</option>
+        <option value="python">Python</option>
+        <option value="java">Java</option>
+        <option value="cpp">C++</option>
+        <option value="html">HTML</option>
+        <option value="css">CSS</option>
+      </select>
+
+      <textarea id="code" placeholder="// Paste your code here..." required></textarea>
+
+      <input type="text" id="tags" placeholder="tag1, tag2, tag3" />
+
+      <label class="toggle-public">
+        <input type="checkbox" id="isPublic" checked />
+        Make Public
+      </label>
+
+      <button type="submit" class="btn-primary">Create Snippet</button>
+    </form>
+  </div>
+
+  <!-- AI -->
+  <div id="ai" class="tab-content">
+    <input type="text" id="aiTopic" placeholder="e.g. Binary Search in Python" />
+    <button onclick="generateAI()" class="btn-primary">Generate Snippet</button>
+  </div>
+
+  <!-- IMPORT -->
+  <div id="import" class="tab-content">
+    
+    <input type="file" id="jsonFile" accept=".json" />
+    
+    <textarea id="bulkText" placeholder="Paste JSON array here..."></textarea>
+    
+    <button onclick="importFromText()" class="btn-primary">
+      Import from Text
+    </button>
+
+  </div>
+
+</div>
+
+<script src="addnewsnippet.js"></script>
 </body>
 </html>

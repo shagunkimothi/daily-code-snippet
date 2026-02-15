@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Snippet Calendar</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+</head>
+<body>
+
+<div class="calendar-container">
+
+  <div class="calendar-header">
+    <div>
+      <h2 id="monthTitle"></h2>
+      <p class="calendar-sub">Browse snippets by creation date</p>
+    </div>
+
+    <div class="calendar-controls">
+      <button id="prevMonth">◀</button>
+      <button id="todayBtn">Today</button>
+      <button id="nextMonth">▶</button>
+    </div>
+  </div>
+
+  <div class="calendar-grid" id="calendarGrid"></div>
+
+</div>
+
+<script src="calendar.js"></script>
+</body>
+</html>
