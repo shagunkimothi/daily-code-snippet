@@ -1,35 +1,40 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const snippets = JSON.parse(localStorage.getItem('daily_snippets')) || [];
-    
-    // Update Welcome Message
-    const welcome = document.getElementById('welcomeUser');
-    if (welcome) welcome.innerText = `Welcome Back, Luffy!`;
+document.addEventListener("DOMContentLoaded", async () => {
 
-    // Update Stats
-    const stats = document.getElementById('statsSummary');
-    if (stats) {
-        const langCount = new Set(snippets.map(s => s.language)).size;
-        stats.innerHTML = `Managing <span class="highlight">${snippets.length}</span> snippets across <span class="highlight">${langCount}</span> languages.`;
-    }
+  const token = localStorage.getItem("token");
+  if (!token) {
+    window.location.href = "auth.html";
+    return;
+  }
 
-    // Generate Heatmap
-    const heatmap = document.getElementById('heatmap');
-    if (heatmap) {
-        for (let i = 0; i < 28; i++) {
-            const block = document.createElement('div');
-            block.className = `heatmap-block ${i % 5 === 0 ? 'active' : ''}`;
-            heatmap.appendChild(block);
-        }
-    }
+  try {
 
-    // Export Functionality
-    document.getElementById('exportBackup')?.addEventListener('click', () => {
-        const data = JSON.stringify(snippets, null, 2);
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `dailycode-backup-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
+    const res = await fetch("http://127.0.0.1:8000/dashboard/me", {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
     });
+
+    const data = await res.json();
+
+    document.getElementById("statSnippets").innerText = data.total_snippets;
+    document.getElementById("statPublic").innerText = data.public_count;
+    document.getElementById("statPrivate").innerText = data.private_count;
+    document.getElementById("statFavorites").innerText = data.favorite_count;
+
+    document.getElementById("totalSnippets").innerText = data.total_snippets;
+
+    if (data.latest_snippet) {
+      const activityBox = document.querySelector(".dashboard-section");
+      activityBox.innerHTML = `
+        <h3>Latest Snippet</h3>
+        <p>📝 ${data.latest_snippet}</p>
+        <p>🔥 Created this week: ${data.created_this_week}</p>
+      `;
+    }
+
+  } catch (err) {
+    console.error("Dashboard fetch error:", err);
+  }
+
 });
+document.getElementById("statWeek").innerText = data.created_this_week;

@@ -1,7 +1,8 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from .database import Base
-
+from datetime import datetime
+from sqlalchemy import DateTime
 
 class User(Base):
     __tablename__ = "users"
@@ -27,8 +28,7 @@ class Snippet(Base):
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", back_populates="snippets")
-from sqlalchemy import DateTime
-from datetime import datetime
+
 
 
 class Favorite(Base):
@@ -54,3 +54,17 @@ class DailySnippet(Base):
     snippet_id = Column(Integer, ForeignKey("snippets.id"))
 
     snippet = relationship("Snippet")
+
+
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False)  # "created", "favorited", etc
+    snippet_id = Column(Integer, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    timestamp = Column(DateTime, default=datetime.utcnow)  
+
+ 
+    

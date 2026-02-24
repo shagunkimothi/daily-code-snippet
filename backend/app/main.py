@@ -10,22 +10,23 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 
 from app.database import engine, get_db
-from app.models import User, Snippet, Favorite
+from app.models import User, Snippet, Favorite, Activity
 from app.schemas import UserCreate, UserResponse, SnippetCreate, SnippetResponse
 from app.security import hash_password, verify_password
 from app.auth import create_access_token, oauth
 from app.dependencies import get_current_user
 from app import models
 
-
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-# Create tables if missing
+# Create tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Daily Code Snippet API")
 
-# -------------------- CORS --------------------
+# ==========================================================
+# CORS
+# ==========================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -126,7 +127,6 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         f"http://127.0.0.1:5500/frontend/index.html?token={jwt_token}"
     )
 
-
 # ==========================================================
 # SNIPPETS
 # ==========================================================
@@ -156,6 +156,16 @@ def add_snippet(
     db.add(new_snippet)
     db.commit()
     db.refresh(new_snippet)
+
+    # 🔥 LOG ACTIVITY
+    activity = Activity(
+        action="created snippet",
+        snippet_id=new_snippet.id,
+        user_id=user.id
+    )
+    db.add(activity)
+    db.commit()
+
     return new_snippet
 
 
@@ -181,6 +191,15 @@ def add_favorite(
     db.add(fav)
     db.commit()
 
+    # 🔥 LOG ACTIVITY
+    activity = Activity(
+        action="favorited snippet",
+        snippet_id=snippet_id,
+        user_id=user.id
+    )
+    db.add(activity)
+    db.commit()
+
     return {"message": "Added to favorites"}
 
 
@@ -201,6 +220,15 @@ def remove_favorite(
     db.delete(fav)
     db.commit()
 
+    # 🔥 LOG ACTIVITY
+    activity = Activity(
+        action="removed favorite",
+        snippet_id=snippet_id,
+        user_id=user.id
+    )
+    db.add(activity)
+    db.commit()
+
     return {"message": "Removed from favorites"}
 
 
@@ -217,6 +245,91 @@ def get_my_favorites(
 
 
 # ==========================================================
-# DAILY & RANDOM SNIPPETS (Phase 7)
+# DAILY & RANDOM
 # ==========================================================
 
+@app.get("/snippets/daily", response_model=SnippetResponse)
+def get_daily_snippet(db: Session = Depends(get_db)):
+
+    snippets = db.query(Snippet).filter(Snippet.is_public == True).all()
+
+    if not snippets:
+        raise HTTPException(status_code=404, detail="No public snippets available")
+
+    today = date.today()
+    index = today.toordinal() % len(snippets)
+
+    return snippets[index]
+
+
+@app.get("/snippets/random", response_model=SnippetResponse)
+def get_random_snippet(db: Session = Depends(get_db)):
+
+    snippets = db.query(Snippet).filter(Snippet.is_public == True).all()
+
+    if not snippets:
+        raise HTTPException(status_code=404, detail="No public snippets available")
+
+    return random.choice(snippets)
+
+
+# ==========================================================
+# ACTIVITY
+# ==========================================================
+
+@app.get("/activities/me")
+def get_my_activity(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    activities = db.query(Activity).filter(
+        Activity.user_id == user.id
+    ).order_by(Activity.timestamp.desc()).limit(5).all()
+
+    return activities
+# ==========================================================
+# DASHBOARD ANALYTICS
+# ==========================================================
+
+from datetime import datetime, timedelta
+
+@app.get("/dashboard/me")
+def get_dashboard_data(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    snippets = db.query(Snippet).filter(
+        Snippet.owner_id == user.id
+    ).all()
+
+    total_snippets = len(snippets)
+    public_count = len([s for s in snippets if s.is_public])
+    private_count = total_snippets - public_count
+
+    # Favorites count
+    favorite_count = db.query(Favorite).filter(
+        Favorite.user_id == user.id
+    ).count()
+
+    # Most recent snippet
+    latest_snippet = db.query(Snippet).filter(
+        Snippet.owner_id == user.id
+    ).order_by(Snippet.id.desc()).first()
+
+    # Snippets created in last 7 days
+    one_week_ago = datetime.utcnow() - timedelta(days=7)
+
+    recent_created = db.query(Activity).filter(
+        Activity.user_id == user.id,
+        Activity.action == "created snippet",
+        Activity.timestamp >= one_week_ago
+    ).count()
+
+    return {
+        "total_snippets": total_snippets,
+        "public_count": public_count,
+        "private_count": private_count,
+        "favorite_count": favorite_count,
+        "latest_snippet": latest_snippet.title if latest_snippet else None,
+        "created_this_week": recent_created
+    }
