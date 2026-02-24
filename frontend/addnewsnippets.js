@@ -45,8 +45,16 @@ let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
    3. DATA FETCHING
 ========================= */
 document.addEventListener("DOMContentLoaded", () => {
-  loadSnippets();
+   const token = localStorage.getItem("token");
+   const isGuest = localStorage.getItem("isGuest") === "true";
+
+   if (!token) {
+      document.getElementById("favBtn").style.display = "none";
+   }
+
+   loadSnippets();
 });
+
 
 async function loadSnippets() {
   const token = localStorage.getItem("token");

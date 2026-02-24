@@ -8,17 +8,13 @@ const AUTH_API = "http://127.0.0.1:8000/auth";
   const token = localStorage.getItem("token");
   const isGuest = localStorage.getItem("isGuest");
 
-  // Only run this check if we are actually ON the auth page
   if (window.location.pathname.includes("auth.html")) {
-    // If logged in (and didn't just click 'Back'), go to app
-    if (token || isGuest) {
-      const navEntry = performance.getEntriesByType("navigation")[0];
-      if (navEntry && navEntry.type !== "back_forward") {
-         window.location.replace("index.html");
-      }
+    if ((token || isGuest) && !window.location.search.includes("force=true")) {
+      window.location.replace("index.html");
     }
   }
 })();
+
 
 /* =========================
    2. LOGIN (Fixed Error Handling)

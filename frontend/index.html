@@ -4,84 +4,128 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Code Snippet</title>
+
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="Sidebar.css" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
 </head>
+
 <body>
 
-<div class="app-container">
-  
-  <header>
-    <h2>🧩 Daily Code Snippet</h2>
-    <div style="display:flex; gap:0.5rem;">
-      <button class="btn-icon" id="themeToggle" title="Toggle Theme">🌙</button>
-      <button class="btn-secondary" id="logoutBtn">Logout</button>
-    </div>
-  </header>
+<div class="app-layout">
 
-  <main>
-    <div class="controls">
-      <input id="search" placeholder="Search snippets by title..." />
-      <select id="language">
-        <option value="All">All Languages</option>
-        <option value="Python">Python</option>
-        <option value="JavaScript">JavaScript</option>
-        <option value="Java">Java</option>
-        <option value="C++">C++</option>
-      </select>
-    </div>
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-content">
 
-    <div class="snippet-card">
-      <div class="snippet-header">
-        <h3 id="snippetTitle">Loading...</h3>
-        <span id="snippetLang" class="snippet-meta">...</span>
+      <div class="sidebar-header">
+        <div class="logo-container">
+          <div class="logo">&lt;/&gt;</div>
+          <h1 class="app-title">DailyCode</h1>
+        </div>
+
+        <nav class="nav-menu">
+          <button class="nav-item" data-view="dashboard">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+
+          <button class="nav-item" data-view="calendar">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Calendar</span>
+          </button>
+
+          <button class="nav-item" data-view="favorites">
+            <span class="nav-icon">⭐</span>
+            <span class="nav-label">Favorites</span>
+          </button>
+        </nav>
       </div>
 
-      <pre><code id="snippetCode" class="language-javascript">console.log("Loading...");</code></pre>
-      <p id="snippetExplanation" class="explanation">Fetching data...</p>
+      <div class="sidebar-footer">
+        <button class="add-snippet-btn" data-view="add">
+          <span class="add-icon">＋</span> Add Snippet
+        </button>
+      </div>
 
-      <div class="actions">
-  <button class="btn-primary" id="randomBtn">🎲 New Random Snippet</button>
-  <button class="btn-icon" id="copyBtn" title="Copy Code">📋</button>
-  <button class="btn-icon" id="favBtn" title="Favorite" data-id="">☆</button>
-</div>
     </div>
+  </aside>
 
-    <br>
-    <button class="btn-secondary" style="width:100%" id="openModalBtn">➕ Add Your Own Snippet</button>
-  </main>
+  <!-- MAIN CONTENT -->
+  <div class="main-wrapper">
+    <div class="app-container">
 
-</div>
+      <!-- HEADER -->
+      <header class="home-header">
 
-<div class="modal" id="addModal">
-  <div class="modal-content">
-    <h2>Add New Snippet</h2>
-    <br>
-    <input id="newTitle" placeholder="Snippet Title" />
-    <select id="newLang">
-      <option value="Python">Python</option>
-      <option value="JavaScript">JavaScript</option>
-      <option value="Java">Java</option>
-      <option value="C++">C++</option>
-    </select>
-    <textarea id="newCode" rows="6" placeholder="Paste your code here..."></textarea>
-    <textarea id="newExpl" rows="3" placeholder="Brief explanation..."></textarea>
-    <div class="visibility-toggle">
-      <input type="checkbox" id="newVisibility" checked />
-      <label for="newVisibility">Make snippet public (visible to everyone)</label>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" id="closeModalBtn">Cancel</button>
-      <button class="btn-primary" id="saveSnippetBtn">Save Snippet</button>
+        <div class="today-header">
+          <h2 class="today-title">
+            Daily Code Snippet
+            <span class="today-badge">📅 TODAY</span>
+          </h2>
+          <p id="todayDate" class="date-label"></p>
+        </div>
+
+        <div class="right-header">
+
+          <button id="themeToggle" class="btn-icon">🌙</button>
+
+          <button id="logoutBtn" class="btn-secondary">
+            Logout
+          </button>
+
+          <button id="randomBtn" class="btn-primary">
+            🔄 New Random
+          </button>
+
+          <button id="copyBtn" class="btn-secondary">
+            📋 Copy
+          </button>
+
+          <button id="favBtn" class="btn-secondary">
+            ☆
+          </button>
+
+        </div>
+
+      </header>
+
+      <!-- SEARCH + FILTER -->
+      <div class="controls">
+        <input id="search" placeholder="Search snippets..." />
+        <select id="language">
+          <option value="All">All Languages</option>
+          <option value="Python">Python</option>
+          <option value="JavaScript">JavaScript</option>
+          <option value="Java">Java</option>
+          <option value="C++">C++</option>
+        </select>
+      </div>
+
+      <!-- SNIPPET CARD -->
+      <div class="snippet-card">
+        <div class="snippet-header">
+          <h3 id="snippetTitle"></h3>
+          <span id="snippetLang" class="snippet-meta"></span>
+        </div>
+
+        <pre>
+<code id="snippetCode"></code>
+        </pre>
+
+        <p id="snippetExplanation" class="explanation"></p>
+      </div>
+
     </div>
   </div>
+
 </div>
 
+<!-- SCRIPTS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-
+<script src="Sidebar.js"></script>
+<script src="addnewsnippets.js"></script>
 <script src="script.js"></script>
-<script src="snippets.js"></script>
 
 </body>
 </html>

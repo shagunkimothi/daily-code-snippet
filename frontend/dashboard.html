@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pro Dashboard - DailyCode</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="Sidebar.css">
+</head>
+<body class="bg-slate-950">
+  <script>
+    // Security Gatekeeper
+    if (!localStorage.getItem("token")) {
+        window.location.href = "index.html";
+    }
+  </script>
+
+  <div class="app-layout">
+    <aside id="sidebar-container"></aside>
+
+    <main class="main-content">
+      <div class="glow-bg"></div>
+      
+      <header class="dashboard-header">
+        <div class="header-info">
+          <span class="badge">PRO DASHBOARD</span>
+          <h1 id="welcomeUser">Welcome Back</h1>
+          <p id="statsSummary">Loading your snippet statistics...</p>
+        </div>
+      </header>
+
+      <div class="dashboard-grid">
+        <div class="grid-left">
+          <section>
+            <div class="section-title">
+              <h2>Recent Activity</h2>
+              <button class="text-link" onclick="window.location.href='index.html'">View All →</button>
+            </div>
+            <div id="recentSnippets" class="snippet-grid"></div>
+          </section>
+
+          <div class="promo-banner">
+            <h3>Scale Your Knowledge</h3>
+            <p>Ready to contribute? Add your latest code snippet to the library.</p>
+            <button class="btn-white" onclick="window.location.href='addnewsnippet.html'">Add Now</button>
+          </div>
+        </div>
+
+        <div class="grid-right">
+          <div class="panel card">
+            <h3>Quick Actions</h3>
+            <div class="action-list">
+              <button class="action-item" onclick="window.location.href='favorites.html'">⭐ Favorites</button>
+              <button class="action-item" id="exportBackup">📦 Backup Library</button>
+            </div>
+          </div>
+
+          <div class="panel card">
+            <h3>Activity Heatmap</h3>
+            <div id="heatmap" class="heatmap-grid"></div>
+            <p class="heatmap-caption">Consistency is key</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="Sidebar.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

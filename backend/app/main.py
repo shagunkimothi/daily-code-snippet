@@ -1,4 +1,7 @@
 import os
+import random
+from datetime import date
+
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
@@ -7,18 +10,22 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 
 from app.database import engine, get_db
-from app.models import User, Snippet
+from app.models import User, Snippet, Favorite
 from app.schemas import UserCreate, UserResponse, SnippetCreate, SnippetResponse
 from app.security import hash_password, verify_password
 from app.auth import create_access_token, oauth
 from app.dependencies import get_current_user
 from app import models
 
+
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
+# Create tables if missing
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Daily Code Snippet API")
+
+# -------------------- CORS --------------------
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +40,9 @@ app.add_middleware(
     secret_key="dev-session-secret",
 )
 
-# ---------- AUTH ----------
+# ==========================================================
+# AUTH
+# ==========================================================
 
 @app.post("/auth/signup", response_model=UserResponse, status_code=201)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
@@ -56,7 +65,6 @@ def login(
     json_data: dict = Body(None),
     db: Session = Depends(get_db),
 ):
-    # 1️⃣ Get credentials safely from either source
     email = None
     password = None
 
@@ -73,7 +81,6 @@ def login(
             detail="Invalid login credentials",
         )
 
-    # 2️⃣ Authenticate
     user = db.query(User).filter(User.email == email).first()
 
     if not user or not verify_password(password, user.hashed_password):
@@ -82,7 +89,6 @@ def login(
             detail="Invalid email or password",
         )
 
-    # 3️⃣ Create token
     access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email}
     )
@@ -112,12 +118,18 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-    jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
+    jwt_token = create_access_token(
+        {"sub": str(user.id), "email": user.email}
+    )
+
     return RedirectResponse(
         f"http://127.0.0.1:5500/frontend/index.html?token={jwt_token}"
     )
 
-# ---------- SNIPPETS ----------
+
+# ==========================================================
+# SNIPPETS
+# ==========================================================
 
 @app.get("/snippets/public", response_model=list[SnippetResponse])
 def public_snippets(db: Session = Depends(get_db)):
@@ -145,3 +157,66 @@ def add_snippet(
     db.commit()
     db.refresh(new_snippet)
     return new_snippet
+
+
+# ==========================================================
+# FAVORITES
+# ==========================================================
+
+@app.post("/favorites/{snippet_id}")
+def add_favorite(
+    snippet_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(Favorite).filter(
+        Favorite.user_id == user.id,
+        Favorite.snippet_id == snippet_id
+    ).first()
+
+    if existing:
+        return {"message": "Already favorited"}
+
+    fav = Favorite(user_id=user.id, snippet_id=snippet_id)
+    db.add(fav)
+    db.commit()
+
+    return {"message": "Added to favorites"}
+
+
+@app.delete("/favorites/{snippet_id}")
+def remove_favorite(
+    snippet_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    fav = db.query(Favorite).filter(
+        Favorite.user_id == user.id,
+        Favorite.snippet_id == snippet_id
+    ).first()
+
+    if not fav:
+        return {"message": "Not in favorites"}
+
+    db.delete(fav)
+    db.commit()
+
+    return {"message": "Removed from favorites"}
+
+
+@app.get("/favorites/me", response_model=list[SnippetResponse])
+def get_my_favorites(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    favorites = db.query(Snippet).join(Favorite).filter(
+        Favorite.user_id == user.id
+    ).all()
+
+    return favorites
+
+
+# ==========================================================
+# DAILY & RANDOM SNIPPETS (Phase 7)
+# ==========================================================
+

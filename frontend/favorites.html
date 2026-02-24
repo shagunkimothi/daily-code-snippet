@@ -10,6 +10,11 @@
 </head>
 
 <body class="min-h-screen bg-slate-900 text-white px-4 py-6">
+<script>
+if (!localStorage.getItem("token")) {
+    window.location.href = "index.html";
+}
+</script>
 
   <div class="max-w-4xl mx-auto">
 

@@ -1,313 +1,593 @@
-/* =========================
-   1. ROOT THEME VARIABLES
-========================= */
+/* =====================================================
+   DAILYCODE — Eye-Friendly Theme System
+   Light: warm cream tones  |  Dark: soft charcoal
+   No harsh whites or deep blacks — easy on the eyes
+===================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* =====================================================
+   1. THEME VARIABLES
+===================================================== */
+
+/* ── Dark Mode (default) — soft charcoal, not black ── */
 :root {
-  --bg: #0f172a;
-  --card: #1e293b;
-  --text: #f8fafc;
-  --muted: #94a3b8;
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --border: #334155;
+  --bg:              #1a1f2e;
+  --bg-secondary:    #161b28;
+  --card:            #212840;
+  --card-hover:      #262d47;
+  --card-elevated:   #2a3050;
+
+  --text:            #dde4f0;
+  --text-secondary:  #9aaac4;
+  --muted:           #5a6a84;
+
+  --primary:         #7c7ff5;
+  --primary-hover:   #6366f1;
+  --primary-subtle:  rgba(124, 127, 245, 0.12);
+  --primary-glow:    rgba(124, 127, 245, 0.25);
+
+  --border:          rgba(255, 255, 255, 0.07);
+  --border-hover:    rgba(255, 255, 255, 0.13);
+
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md:       0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg:       0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-primary:  0 4px 18px rgba(124, 127, 245, 0.3);
+
+  --sidebar-bg:      #161b28;
+  --sidebar-border:  rgba(255, 255, 255, 0.06);
+  --sidebar-text:    #607080;
+  --sidebar-hover:   rgba(255, 255, 255, 0.05);
+
+  --input-bg:        #1e2438;
+  --code-bg:         #141828;
+  --code-border:     rgba(255, 255, 255, 0.05);
+
+  --add-bg:          #1e2438;
+  --add-border:      rgba(255, 255, 255, 0.07);
+  --add-hover:       rgba(124, 127, 245, 0.1);
+
+  --scrollbar:       rgba(255, 255, 255, 0.08);
+
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
 }
 
+/* ── Light Mode — warm cream, not blinding white ── */
 body.light {
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --text: #0f172a;
-  --muted: #475569;
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --border: #e2e8f0;
+  --bg:              #f0ece4;       /* warm parchment */
+  --bg-secondary:    #e8e3da;       /* slightly deeper warm */
+  --card:            #faf7f2;       /* soft cream card */
+  --card-hover:      #f5f0e8;
+  --card-elevated:   #f5f0e8;
+
+  --text:            #2c2420;       /* warm dark brown, not harsh black */
+  --text-secondary:  #5c4f44;       /* medium warm brown */
+  --muted:           #9c8c7c;       /* muted warm tone */
+
+  --primary:         #5a5ce0;
+  --primary-hover:   #4340c4;
+  --primary-subtle:  rgba(90, 92, 224, 0.09);
+  --primary-glow:    rgba(90, 92, 224, 0.2);
+
+  --border:          rgba(100, 80, 60, 0.12);
+  --border-hover:    rgba(100, 80, 60, 0.22);
+
+  --shadow-sm:       0 1px 4px rgba(60, 40, 20, 0.07);
+  --shadow-md:       0 4px 18px rgba(60, 40, 20, 0.09);
+  --shadow-lg:       0 8px 30px rgba(60, 40, 20, 0.13);
+  --shadow-primary:  0 4px 18px rgba(90, 92, 224, 0.2);
+
+  --sidebar-bg:      #ece8e0;       /* warm light sidebar */
+  --sidebar-border:  rgba(100, 80, 60, 0.1);
+  --sidebar-text:    #8c7c6c;
+  --sidebar-hover:   rgba(90, 92, 224, 0.07);
+
+  --input-bg:        #faf7f2;
+  --code-bg:         #1e2233;       /* keep code dark for readability */
+  --code-border:     rgba(0, 0, 0, 0.15);
+
+  --add-bg:          #ece8e0;
+  --add-border:      rgba(100, 80, 60, 0.12);
+  --add-hover:       rgba(90, 92, 224, 0.08);
+
+  --scrollbar:       rgba(100, 80, 60, 0.15);
 }
 
-/* =========================
-   2. GLOBAL
-========================= */
+/* =====================================================
+   2. GLOBAL SMOOTH TRANSITIONS
+===================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Every element transitions colors smoothly */
+body * {
+  transition-property: background-color, background, border-color, color, box-shadow, fill, stroke;
+  transition-duration: 0.4s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Interactive elements stay snappy */
+button, a, input, select, textarea, .nav-item, .btn-primary, .btn-secondary, .btn-icon {
+  transition-duration: 0.2s !important;
+}
+
+/* Prevent flash on page load */
+body.no-transition,
+body.no-transition * {
+  transition: none !important;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
 
 body {
-  margin: 0;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  transition: 0.3s ease;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 99px;
+}
+
+/* =====================================================
+   3. LAYOUT
+===================================================== */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  min-height: 100vh;
+  flex-shrink: 0;
+}
+
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 3rem 2.5rem;
+  min-height: 100vh;
+  background: var(--bg);
 }
 
 .app-container {
-  max-width: 900px;
-  margin: auto;
-  padding: 2rem;
+  width: 100%;
+  max-width: 880px;
 }
 
-/* =========================
-   3. HEADER
-========================= */
+/* =====================================================
+   4. HEADER
+===================================================== */
 
-header {
+.home-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
-header h1, header h2 {
-  margin: 0;
+.home-header h2 {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  line-height: 1.2;
 }
 
-/* =========================
-   4. BUTTONS
-========================= */
-
-button {
-  cursor: pointer;
-  border: none;
-  border-radius: 8px;
-  padding: 0.6rem 1rem;
-  font-weight: 600;
-  transition: 0.2s ease;
+.right-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
+
+/* =====================================================
+   5. BUTTONS
+===================================================== */
 
 .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   background: var(--primary);
+  border: none;
+  padding: 0.58rem 1.15rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
   color: white;
+  box-shadow: var(--shadow-primary);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
 .btn-primary:hover {
   background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px var(--primary-glow);
 }
 
+.btn-primary:active { transform: translateY(0); }
+
 .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   background: var(--card);
-  color: var(--text);
   border: 1px solid var(--border);
+  padding: 0.58rem 1.15rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
 }
 
 .btn-secondary:hover {
-  opacity: 0.9;
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
 }
 
-.icon-btn {
-  background: transparent;
-  font-size: 1.2rem;
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
 }
 
-/* =========================
-   5. INPUTS
-========================= */
+.btn-icon:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+/* =====================================================
+   6. INPUTS & FILTERS
+===================================================== */
+
+.filters {
+  display: flex;
+  gap: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.filters input { flex: 2; }
+.filters select { flex: 1; }
 
 input, select, textarea {
   width: 100%;
-  padding: 0.7rem;
-  border-radius: 8px;
+  padding: 0.65rem 0.95rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: var(--card);
+  background: var(--input-bg);
   color: var(--text);
-  margin-bottom: 1rem;
-  transition: 0.2s ease;
+  font-size: 0.9rem;
+  font-family: inherit;
+  box-shadow: var(--shadow-sm);
+  outline: none;
 }
 
+input::placeholder { color: var(--muted); }
+
 input:focus, select:focus, textarea:focus {
-  outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c8c7c' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-color: var(--input-bg);
+  padding-right: 2.5rem;
+  cursor: pointer;
 }
 
 textarea {
   resize: vertical;
   min-height: 120px;
+  line-height: 1.65;
 }
 
-/* =========================
-   6. SNIPPET CARD
-========================= */
+/* =====================================================
+   7. SNIPPET CARD
+===================================================== */
 
 .snippet-card {
   background: var(--card);
-  padding: 1.5rem;
-  border-radius: 12px;
   border: 1px solid var(--border);
-  margin-bottom: 1.5rem;
-  position: relative;
+  border-radius: var(--radius-xl);
+  padding: 1.6rem 1.75rem;
+  box-shadow: var(--shadow-md);
+  margin-top: 1.1rem;
+  animation: fadeUp 0.35s ease both;
+}
+
+.snippet-card:nth-child(2) { animation-delay: 0.05s; }
+.snippet-card:nth-child(3) { animation-delay: 0.10s; }
+.snippet-card:nth-child(4) { animation-delay: 0.15s; }
+.snippet-card:nth-child(5) { animation-delay: 0.20s; }
+
+.snippet-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-hover);
 }
 
 .snippet-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.snippet-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.3;
 }
 
 .snippet-meta {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.explanation {
-  margin-top: 1rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-/* =========================
-   7. ACTION BUTTON ROW
-========================= */
-
-.actions {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+pre {
+  background: var(--code-bg) !important;
+  border: 1px solid var(--code-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 1.1rem 1.25rem !important;
+  overflow-x: auto;
+  font-size: 0.85rem !important;
+  line-height: 1.65 !important;
   margin-top: 1rem;
 }
 
-/* =========================
-   8. FAVORITE STAR
-========================= */
+/* =====================================================
+   8. BADGE
+===================================================== */
 
-#favBtn {
-  font-size: 1.4rem;
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--primary-subtle);
+  color: var(--primary);
+  border: 1px solid var(--primary-glow);
+  text-transform: uppercase;
+}
+
+/* =====================================================
+   9. FAVORITE BUTTON
+===================================================== */
+
+#favBtn, .fav-btn {
+  font-size: 1.15rem;
   background: transparent;
   border: none;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  line-height: 1;
+  font-family: inherit;
 }
 
-#favBtn:hover {
-  transform: scale(1.1);
-}
+#favBtn:hover, .fav-btn:hover { transform: scale(1.25); color: #e0956a; }
+#favBtn.active, .fav-btn.active { color: #e0956a; }
 
-/* =========================
-   9. SEARCH + FILTER
-========================= */
+/* =====================================================
+   10. AUTH PAGE
+===================================================== */
 
-.filters {
+.auth-wrapper {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-/* =========================
-   10. MODAL (ADD SNIPPET)
-========================= */
-
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.6);
-  display: none;
   justify-content: center;
   align-items: center;
+  height: 100vh;
+  background: var(--bg);
 }
 
-.modal.active {
-  display: flex;
-}
-
-.modal-content {
+.auth-box {
   background: var(--card);
-  padding: 2rem;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 600px;
+  padding: 2.5rem;
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 420px;
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
 }
 
-/* =========================
-   11. GALLERY PAGE
-========================= */
-
-.gallery-grid {
-  display: grid;
-  gap: 1.5rem;
+.auth-box h1 {
+  margin-bottom: 1.5rem;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
 }
 
-/* =========================
-   12. LOADER
-========================= */
-
-.loader {
-  text-align: center;
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 1.5rem 0;
   color: var(--muted);
-  padding: 2rem;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
-/* =========================
-   13. TRANSITIONS
-========================= */
-
-* {
-  transition: background 0.3s ease, color 0.3s ease;
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
+
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--card-elevated);
+  color: var(--text);
+  text-decoration: none;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.google-btn:hover {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+/* =====================================================
+   11. CALENDAR
+===================================================== */
+
 .calendar-container {
   max-width: 1100px;
   margin: auto;
   padding: 40px;
 }
 
-.calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.calendar-controls button {
-  background: #1e293b;
-  color: #cbd5e1;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-  margin-left: 5px;
-  cursor: pointer;
-}
-
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 1px;
-  background: #1e293b;
-  border-radius: 16px;
+  background: var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-}
-
-.calendar-day-header {
-  background: #0f172a;
-  padding: 10px;
-  text-align: center;
-  font-weight: bold;
-  font-size: 12px;
-  color: #94a3b8;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
 }
 
 .calendar-cell {
-  background: #111827;
+  background: var(--card);
   min-height: 110px;
-  padding: 6px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
 }
 
+.calendar-cell:hover { background: var(--card-hover); }
+
 .calendar-cell.today {
-  border: 2px solid #6366f1;
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  background: var(--primary-subtle);
 }
 
-.calendar-date {
-  font-size: 12px;
-  font-weight: bold;
-  color: #94a3b8;
+/* =====================================================
+   12. ANIMATIONS
+===================================================== */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* =========================
+   TODAY BADGE
+========================= */
+
+.today-header {
+  margin-bottom: 2rem;
 }
 
-.calendar-snippet {
-  margin-top: 4px;
-  font-size: 10px;
-  background: rgba(99,102,241,0.2);
-  border: none;
-  border-radius: 6px;
-  padding: 3px;
-  color: #a5b4fc;
-  cursor: pointer;
-  text-align: left;
+.today-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 1.8rem;
+  font-weight: 700;
 }
 
-.calendar-snippet:hover {
-  background: rgba(99,102,241,0.4);
+.today-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  letter-spacing: 1px;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.6);
+  animation: pulseGlow 2s infinite ease-in-out;
+  transition: transform 0.2s ease;
+}
+
+.today-badge:hover {
+  transform: scale(1.05);
+}
+
+/* Subtle glowing animation */
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+  }
+}
+
+.date-label {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
 }

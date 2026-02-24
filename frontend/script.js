@@ -1,54 +1,56 @@
-/* =========================
-   1. THEME LOGIC
-========================= */
 document.addEventListener("DOMContentLoaded", () => {
+
+  /* =========================
+     1. THEME LOGIC
+  ========================= */
   const toggleBtn = document.getElementById("themeToggle");
   const storedTheme = localStorage.getItem("theme");
-  
-  // Set initial theme
+
   if (storedTheme === "light") {
     document.body.classList.add("light");
-    toggleBtn.innerText = "☀️";
+    if (toggleBtn) toggleBtn.innerText = "☀️";
   } else {
-    toggleBtn.innerText = "🌙";
+    if (toggleBtn) toggleBtn.innerText = "🌙";
   }
 
-  // Toggle on click
-  toggleBtn.onclick = () => {
-    document.body.classList.toggle("light");
-    const isLight = document.body.classList.contains("light");
-    localStorage.setItem("theme", isLight ? "light" : "dark");
-    toggleBtn.innerText = isLight ? "☀️" : "🌙";
-  };
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      document.body.classList.toggle("light");
+      const isLight = document.body.classList.contains("light");
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+      toggleBtn.innerText = isLight ? "☀️" : "🌙";
+    });
+  }
+
+
+  /* =========================
+     2. LOGOUT
+  ========================= */
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("isGuest");
+      window.location.href = "auth.html";
+    });
+  }
+
+
+  /* =========================
+     3. TODAY'S DATE DISPLAY
+  ========================= */
+  const dateElement = document.getElementById("todayDate");
+
+  if (dateElement) {
+    const today = new Date();
+
+    dateElement.innerText = today.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+  }
+
 });
-
-/* =========================
-   2. MODAL LOGIC (Open/Close)
-========================= */
-const modal = document.getElementById("addModal");
-const openBtn = document.getElementById("openModalBtn");
-const closeBtn = document.getElementById("closeModalBtn");
-
-if (openBtn) {
-  openBtn.onclick = () => modal.classList.add("active");
-}
-
-if (closeBtn) {
-  closeBtn.onclick = () => modal.classList.remove("active");
-}
-
-// Close if clicked outside
-window.onclick = (e) => {
-  if (e.target === modal) modal.classList.remove("active");
-};
-
-/* =========================
-   3. LOGOUT
-========================= */
-const logoutBtn = document.getElementById("logoutBtn");
-if (logoutBtn) {
-  logoutBtn.onclick = () => {
-    localStorage.clear();
-    window.location.href = "auth.html";
-  };
-}

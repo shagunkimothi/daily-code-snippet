@@ -27,3 +27,30 @@ class Snippet(Base):
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", back_populates="snippets")
+from sqlalchemy import DateTime
+from datetime import datetime
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    snippet_id = Column(Integer, ForeignKey("snippets.id"), nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="favorites")
+    snippet = relationship("Snippet", backref="favorited_by")
+
+from datetime import date
+
+class DailySnippet(Base):
+    __tablename__ = "daily_snippets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    day = Column(String, unique=True, index=True)
+    snippet_id = Column(Integer, ForeignKey("snippets.id"))
+
+    snippet = relationship("Snippet")
