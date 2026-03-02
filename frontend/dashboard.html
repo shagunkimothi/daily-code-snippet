@@ -4,112 +4,196 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | DailyCode</title>
-
-  <!-- Global Styles -->
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="Sidebar.css" />
   <link rel="stylesheet" href="dashboard.css" />
+  <style>
+    /* ── HEATMAP ── */
+    .heatmap-section {
+      background: var(--card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem 1.75rem;
+      margin-top: 1rem;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+    }
+    .heatmap-section::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+    }
+    .heatmap-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+    .heatmap-stats {
+      display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 1.2rem;
+    }
+    .heatmap-stat-item { display: flex; flex-direction: column; gap: 3px; }
+    .heatmap-stat-label {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .heatmap-stat-value {
+      font-size: 1.5rem; font-weight: 800; color: var(--primary);
+      font-family: 'JetBrains Mono', monospace; line-height: 1;
+      text-shadow: 0 0 20px var(--primary-glow);
+    }
+    .heatmap-grid-wrap { overflow-x: auto; padding-bottom: 6px; }
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(53, 1fr);
+      gap: 3px;
+      min-width: 640px;
+    }
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.04);
+      transition: transform 0.1s, box-shadow 0.1s;
+      cursor: default;
+    }
+    .heatmap-cell:hover { transform: scale(1.5); z-index: 1; position: relative; }
+    .heatmap-cell[data-level="1"] { background: rgba(0,212,255,0.2); }
+    .heatmap-cell[data-level="2"] { background: rgba(0,212,255,0.4); }
+    .heatmap-cell[data-level="3"] { background: rgba(0,212,255,0.65); }
+    .heatmap-cell[data-level="4"] { background: rgba(0,212,255,0.9); box-shadow: 0 0 6px rgba(0,212,255,0.5); }
+    .heatmap-legend {
+      display: flex; align-items: center; gap: 5px;
+      justify-content: flex-end; margin-top: 8px;
+      font-size: 0.7rem; color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .legend-cell {
+      width: 11px; height: 11px; border-radius: 2px;
+    }
+
+    /* ── GO BACK ── */
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .btn-back {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--card); border: 1px solid var(--border-card);
+      padding: 0.48rem 1rem; border-radius: var(--radius-md);
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      color: var(--text-secondary); font-family: 'DM Sans', inherit;
+      transition: all 0.15s !important;
+    }
+    .btn-back:hover { border-color: var(--border-hover); color: var(--primary); background: var(--primary-subtle); }
+
+    /* ── VIEW MY SNIPPETS BTN ── */
+    .snippets-shortcut {
+      display: flex; justify-content: flex-end; margin-bottom: 1rem;
+    }
+  </style>
 </head>
-
 <body>
-
 <div class="app-layout">
 
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-content">
-
       <div class="sidebar-header">
         <div class="logo-container">
           <div class="logo">&lt;/&gt;</div>
           <h1 class="app-title">DailyCode</h1>
         </div>
-
         <nav class="nav-menu">
-          <button class="nav-item active" data-view="dashboard">
-            <span class="nav-icon">🏠</span>
-            <span class="nav-label">Dashboard</span>
-          </button>
-
-          <button class="nav-item" data-view="calendar">
-            <span class="nav-icon">📅</span>
-            <span class="nav-label">Calendar</span>
-          </button>
-
-          <button class="nav-item" data-view="favorites">
-            <span class="nav-icon">⭐</span>
-            <span class="nav-label">Favorites</span>
-          </button>
+          <button class="nav-item active" data-view="dashboard"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span></button>
+          <button class="nav-item" data-view="calendar"><span class="nav-icon">📅</span><span class="nav-label">Calendar</span></button>
+          <button class="nav-item" data-view="favorites"><span class="nav-icon">⭐</span><span class="nav-label">Favorites</span></button>
         </nav>
       </div>
-
       <div class="sidebar-footer">
-        <button class="add-snippet-btn" data-view="add">
-          <span class="add-icon">＋</span> Add Snippet
-        </button>
+        <button class="add-snippet-btn" data-view="add"><span class="add-icon">＋</span> Add Snippet</button>
       </div>
-
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
   <div class="main-wrapper">
     <div class="app-container">
+
+      <!-- TOP BAR with Go Back -->
+      <div class="top-bar">
+        <button class="btn-back" onclick="history.back()">← Go Back</button>
+        <a href="mysnippets.html" class="btn-primary" style="text-decoration:none">📁 My Snippets</a>
+      </div>
 
       <!-- HEADER -->
       <div class="dashboard-header">
         <span class="dashboard-badge">PRO DASHBOARD</span>
         <h2>Welcome Back 👋</h2>
-        <p class="dashboard-sub">
-          Managing <strong id="totalSnippets">0</strong> snippets.
-        </p>
+        <p class="dashboard-sub">Managing <strong id="totalSnippets">0</strong> snippets.</p>
       </div>
 
-      <!-- CREATED THIS WEEK — full-width card on top -->
+      <!-- CREATED THIS WEEK -->
       <div class="dashboard-card card-week">
         <h3>Created This Week</h3>
         <p id="statWeek">0</p>
       </div>
 
-      <!-- STATS GRID — ✅ FIXED: statWeek card now outside the grid (above), others inside -->
+      <!-- STATS GRID -->
       <div class="dashboard-grid">
-
-        <div class="dashboard-card">
-          <h3>Total Snippets</h3>
-          <p id="statSnippets">0</p>
-        </div>
-
-        <div class="dashboard-card">
-          <h3>Favorites</h3>
-          <p id="statFavorites">0</p>
-        </div>
-
-        <div class="dashboard-card">
-          <h3>Public Snippets</h3>
-          <p id="statPublic">0</p>
-        </div>
-
-        <div class="dashboard-card">
-          <h3>Private Snippets</h3>
-          <p id="statPrivate">0</p>
-        </div>
-
+        <div class="dashboard-card"><h3>Total Snippets</h3><p id="statSnippets">0</p></div>
+        <div class="dashboard-card"><h3>Favorites</h3><p id="statFavorites">0</p></div>
+        <div class="dashboard-card"><h3>Public</h3><p id="statPublic">0</p></div>
+        <div class="dashboard-card"><h3>Private</h3><p id="statPrivate">0</p></div>
       </div>
 
-      <!-- RECENT ACTIVITY — populated dynamically by dashboard.js -->
-      <div class="dashboard-section">
+      <!-- 🔥 ACTIVITY HEATMAP -->
+      <div class="heatmap-section">
+        <div class="heatmap-title">🔥 Activity — Last 365 Days</div>
+        <div class="heatmap-stats">
+          <div class="heatmap-stat-item">
+            <span class="heatmap-stat-label">Current Streak</span>
+            <span class="heatmap-stat-value" id="currentStreak">–</span>
+          </div>
+          <div class="heatmap-stat-item">
+            <span class="heatmap-stat-label">Longest Streak</span>
+            <span class="heatmap-stat-value" id="longestStreak">–</span>
+          </div>
+          <div class="heatmap-stat-item">
+            <span class="heatmap-stat-label">Active Days</span>
+            <span class="heatmap-stat-value" id="activeDays">–</span>
+          </div>
+        </div>
+        <div class="heatmap-grid-wrap">
+          <div class="heatmap-grid" id="heatmapGrid">
+            <!-- cells injected by JS -->
+          </div>
+        </div>
+        <div class="heatmap-legend">
+          Less
+          <div class="legend-cell" style="background:rgba(255,255,255,0.04)"></div>
+          <div class="legend-cell" style="background:rgba(0,212,255,0.2)"></div>
+          <div class="legend-cell" style="background:rgba(0,212,255,0.4)"></div>
+          <div class="legend-cell" style="background:rgba(0,212,255,0.65)"></div>
+          <div class="legend-cell" style="background:rgba(0,212,255,0.9);box-shadow:0 0 4px rgba(0,212,255,0.5)"></div>
+          More
+        </div>
+      </div>
+
+      <!-- RECENT ACTIVITY -->
+      <div class="dashboard-section" style="margin-top:1rem">
         <h3>🕐 Recent Activity</h3>
         <p class="muted-text">Loading...</p>
       </div>
 
     </div>
   </div>
-
 </div>
 
-<!-- SCRIPTS -->
 <script src="Sidebar.js"></script>
 <script src="dashboard.js"></script>
-
 </body>
 </html>
