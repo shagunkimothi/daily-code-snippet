@@ -24,56 +24,50 @@ class Sidebar {
 
     navigate(view) {
         const token = localStorage.getItem("token");
-        const isGuest = localStorage.getItem("isGuest") === "true";
 
         if (view === 'dashboard') {
-            if (!token) {
-                alert("Please log in to access Dashboard.");
-                return;
-            }
             window.location.href = "dashboard.html";
         }
-
         else if (view === 'calendar') {
             window.location.href = "calendar.html";
         }
-
-        else if (view === 'library') {
-            window.location.href = "library.html"; // if you create this
-        }
-
         else if (view === 'favorites') {
-            if (!token) {
-                alert("Please log in to access Favorites.");
-                return;
-            }
             window.location.href = "favorites.html";
         }
-
         else if (view === 'add') {
-            if (!token) {
-                alert("Please log in to add snippets.");
-                return;
-            }
             window.location.href = "addnewsnippet.html";
+        }
+        else if (view === 'library') {
+            window.location.href = "index.html";
         }
     }
 
     applyRoleVisibility() {
         const token = localStorage.getItem("token");
 
-        if (!token) {
-            // Hide dashboard & favorites for guest
+        if (token) {
+            // LOGGED IN — show everything
+            document.querySelectorAll('[data-view="dashboard"], [data-view="favorites"]')
+                .forEach(el => el.style.display = "");
+            if (this.addButton) this.addButton.style.display = "";
+        } else {
+            // GUEST — hide Dashboard, Favorites, Add Snippet. Show only Calendar
             document.querySelectorAll('[data-view="dashboard"], [data-view="favorites"]')
                 .forEach(el => el.style.display = "none");
-
-            if (this.addButton) {
-                this.addButton.style.display = "none";
-            }
+            if (this.addButton) this.addButton.style.display = "none";
         }
     }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Save Google OAuth token from URL BEFORE sidebar initializes
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get("token");
+    if (urlToken) {
+        localStorage.setItem("token", urlToken);
+        localStorage.removeItem("isGuest");
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     new Sidebar();
 });

@@ -1,191 +1,63 @@
-/* =========================
-   1. CONFIG & STATE
-========================= */
-const PUBLIC_API = "http://127.0.0.1:8000/snippets/public";
-const PRIVATE_API = "http://127.0.0.1:8000/snippets/private";
 const ADD_API = "http://127.0.0.1:8000/snippets/add";
-
-let allSnippets = [];
-let currentSnippet = null;
-
-// Phase 5: Initialize favorites from LocalStorage
-let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
-
+const AI_API  = "http://127.0.0.1:8000/snippets/generate-ai";
 
 /* =========================
-   2. AUTH HANDLER
+   GO BACK
 ========================= */
-(function handleAuth() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlToken = urlParams.get("token");
-  const error = urlParams.get("error");
-
-  if (error) {
-    alert("Google Login Error: " + error);
-    window.location.href = "auth.html";
-    return;
-  }
-
-  if (urlToken) {
-    localStorage.setItem("token", urlToken);
-    localStorage.removeItem("isGuest");
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  const token = localStorage.getItem("token");
-  const isGuest = localStorage.getItem("isGuest");
-
-  if (!token && !isGuest) {
-    window.location.replace("auth.html");
-  }
-})();
-
+function goBack() {
+  window.history.back();
+}
 
 /* =========================
-   3. DATA FETCHING
+   TAB SWITCHING
 ========================= */
-document.addEventListener("DOMContentLoaded", () => {
-   const token = localStorage.getItem("token");
-   const isGuest = localStorage.getItem("isGuest") === "true";
-
-   if (!token) {
-      document.getElementById("favBtn").style.display = "none";
-   }
-
-   loadSnippets();
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
 });
 
-
-async function loadSnippets() {
-  const token = localStorage.getItem("token");
-  const endpoint = token ? PRIVATE_API : PUBLIC_API;
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-  try {
-    const res = await fetch(endpoint, { headers });
-
-    if (!res.ok) {
-      console.error("Failed API:", res.status);
-      return;
-    }
-
-    const dbSnippets = await res.json();
-    allSnippets = dbSnippets;
-    showRandomSnippet();
-
-  } catch (err) {
-    console.error("Failed to load snippets:", err);
-  }
+/* =========================
+   TOAST NOTIFICATION
+========================= */
+function showToast(message, color = "#22c55e") {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.style.background = color;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-
 /* =========================
-   4. RENDERING LOGIC
+   MANUAL FORM SUBMIT
 ========================= */
-function showRandomSnippet() {
+document.getElementById("snippetForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-  const searchVal = document.getElementById("search").value.toLowerCase();
-  const langVal = document.getElementById("language").value;
-
-  const filtered = allSnippets.filter(s => {
-    const matchesLang = langVal === "All" || s.language === langVal;
-    const matchesSearch = s.title.toLowerCase().includes(searchVal);
-    return matchesLang && matchesSearch;
-  });
-
-  const titleEl = document.getElementById("snippetTitle");
-  const codeEl = document.getElementById("snippetCode");
-  const explEl = document.getElementById("snippetExplanation");
-  const langEl = document.getElementById("snippetLang");
-  const favBtn = document.getElementById("favBtn");
-
-  if (filtered.length === 0) {
-    titleEl.innerText = "No snippets found";
-    codeEl.innerText = "// Try changing filters";
-    explEl.innerText = "";
-    langEl.innerText = "";
-    favBtn.style.display = "none";
+  const token = localStorage.getItem("token");
+  if (!token) {
+    showToast("Please log in to add snippets.", "#ef4444");
+    setTimeout(() => window.location.href = "auth.html", 1500);
     return;
   }
 
-  favBtn.style.display = "inline-block";
-
-  currentSnippet = filtered[Math.floor(Math.random() * filtered.length)];
-
-  titleEl.innerText = currentSnippet.title;
-  codeEl.textContent = currentSnippet.code;
-  explEl.innerText = currentSnippet.explanation || "";
-  langEl.innerText = `${currentSnippet.language} • ${currentSnippet.is_public ? "Public" : "Private"}`;
-
-  updateFavoriteIcon();
-
-  codeEl.className = `language-${currentSnippet.language.toLowerCase()}`;
-  if (window.Prism) Prism.highlightElement(codeEl);
-}
-
-
-/* =========================
-   5. FAVORITE HANDLING
-========================= */
-function updateFavoriteIcon() {
-  const favBtn = document.getElementById("favBtn");
-  if (!currentSnippet) return;
-
-  const isFav = favorites.some(f => f.id === currentSnippet.id);
-  favBtn.innerText = isFav ? "⭐" : "☆";
-}
-
-document.getElementById("favBtn").onclick = () => {
-  if (!currentSnippet) return;
-
-  const favIndex = favorites.findIndex(f => f.id === currentSnippet.id);
-
-  if (favIndex > -1) {
-    favorites.splice(favIndex, 1);
-  } else {
-    favorites.push(currentSnippet);
-  }
-
-  localStorage.setItem("favorites", JSON.stringify(favorites));
-  updateFavoriteIcon();
-};
-
-
-/* =========================
-   6. BUTTON EVENTS
-========================= */
-document.getElementById("randomBtn").onclick = showRandomSnippet;
-document.getElementById("search").oninput = showRandomSnippet;
-document.getElementById("language").onchange = showRandomSnippet;
-
-document.getElementById("copyBtn").onclick = () => {
-  navigator.clipboard.writeText(
-    document.getElementById("snippetCode").textContent
-  );
-  alert("Code copied!");
-};
-
-
-/* =========================
-   7. SAVE NEW SNIPPET
-========================= */
-document.getElementById("saveSnippetBtn").onclick = async () => {
-
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    return alert("Guest mode is read-only. Please Login to save snippets.");
-  }
-
-  const title = document.getElementById("newTitle").value.trim();
-  const language = document.getElementById("newLang").value;
-  const code = document.getElementById("newCode").value.trim();
-  const explanation = document.getElementById("newExpl").value.trim();
-  const isPublic = document.getElementById("newVisibility").checked;
+  const title       = document.getElementById("title").value.trim();
+  const language    = document.getElementById("language").value;
+  const code        = document.getElementById("code").value.trim();
+  const explanation = document.getElementById("explanation").value.trim();
+  const isPublic    = document.getElementById("isPublic").checked;
 
   if (!title || !code) {
-    return alert("Title and Code are required.");
+    showToast("Title and Code are required.", "#ef4444");
+    return;
   }
+
+  const submitBtn = document.getElementById("submitBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Saving...";
 
   try {
     const res = await fetch(ADD_API, {
@@ -194,32 +66,165 @@ document.getElementById("saveSnippetBtn").onclick = async () => {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify({
-        title,
-        language,
-        code,
-        explanation,
-        is_public: isPublic
-      })
+      body: JSON.stringify({ title, language, code, explanation, is_public: isPublic })
     });
 
     if (!res.ok) {
-      alert("Failed to save snippet.");
-      return;
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Error ${res.status}`);
     }
 
-    alert("Snippet saved successfully!");
+    // ✅ Tell dashboard a new snippet was created
+    localStorage.setItem("snippetsChanged", "true");
 
-    document.getElementById("addModal").classList.remove("active");
+    showToast("✅ Snippet saved successfully!");
 
-    document.getElementById("newTitle").value = "";
-    document.getElementById("newCode").value = "";
-    document.getElementById("newExpl").value = "";
-    document.getElementById("newVisibility").checked = true;
+    // Clear form
+    document.getElementById("title").value = "";
+    document.getElementById("code").value = "";
+    document.getElementById("explanation").value = "";
+    document.getElementById("isPublic").checked = true;
 
-    await loadSnippets();
+    // Redirect to dashboard after short delay
+    setTimeout(() => window.location.href = "dashboard.html", 1500);
 
   } catch (err) {
-    alert("Server error.");
+    console.error("Save error:", err);
+    showToast(`❌ ${err.message}`, "#ef4444");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Create Snippet";
   }
-};
+});
+
+/* =========================
+   AI MAGIC
+========================= */
+async function generateAI() {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    showToast("Please log in to use AI Magic.", "#ef4444");
+    return;
+  }
+
+  const topic = document.getElementById("aiTopic").value.trim();
+  if (!topic) {
+    showToast("Please enter a topic first.", "#ef4444");
+    return;
+  }
+
+  const aiBtn = document.getElementById("aiBtn");
+  aiBtn.textContent = "✨ Generating...";
+  aiBtn.disabled = true;
+
+  try {
+    const res = await fetch(AI_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ topic })
+    });
+
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+    const data = await res.json();
+
+    // Strip markdown fences Gemini sometimes adds
+    const clean = data.result.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+
+    // Fill in manual form fields
+    document.getElementById("title").value       = parsed.title       || "";
+    document.getElementById("code").value        = parsed.code        || "";
+    document.getElementById("explanation").value = parsed.explanation || "";
+
+    // Match language to select option (case-insensitive)
+    const langSelect = document.getElementById("language");
+    const options = Array.from(langSelect.options).map(o => o.value.toLowerCase());
+    const match = options.indexOf((parsed.language || "").toLowerCase());
+    if (match !== -1) langSelect.selectedIndex = match;
+
+    // Switch to manual tab so user can review and save
+    document.querySelector('[data-tab="manual"]').click();
+    showToast("✨ AI snippet ready! Review and click Create Snippet.");
+
+  } catch (err) {
+    console.error("AI error:", err);
+    showToast("❌ AI generation failed. Check backend and API key.", "#ef4444");
+  } finally {
+    aiBtn.textContent = "✨ Generate Snippet";
+    aiBtn.disabled = false;
+  }
+}
+
+/* =========================
+   BULK IMPORT
+========================= */
+async function importSnippets() {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    showToast("Please log in to import snippets.", "#ef4444");
+    return;
+  }
+
+  // Try file first, then textarea
+  let snippets = [];
+  const fileInput = document.getElementById("jsonFile");
+  const bulkText  = document.getElementById("bulkText").value.trim();
+
+  try {
+    if (fileInput.files.length > 0) {
+      const text = await fileInput.files[0].text();
+      snippets = JSON.parse(text);
+    } else if (bulkText) {
+      snippets = JSON.parse(bulkText);
+    } else {
+      showToast("Please provide a file or paste JSON.", "#ef4444");
+      return;
+    }
+  } catch {
+    showToast("❌ Invalid JSON format.", "#ef4444");
+    return;
+  }
+
+  if (!Array.isArray(snippets)) {
+    showToast("❌ JSON must be an array of snippets.", "#ef4444");
+    return;
+  }
+
+  let saved = 0;
+  let failed = 0;
+
+  for (const s of snippets) {
+    if (!s.title || !s.code) { failed++; continue; }
+
+    try {
+      const res = await fetch(ADD_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title:       s.title,
+          language:    s.language    || "JavaScript",
+          code:        s.code,
+          explanation: s.explanation || "",
+          is_public:   s.is_public   ?? true
+        })
+      });
+
+      if (res.ok) saved++;
+      else failed++;
+    } catch { failed++; }
+  }
+
+  localStorage.setItem("snippetsChanged", "true");
+  showToast(`✅ Imported ${saved} snippets${failed ? `, ${failed} failed` : ""}.`);
+
+  if (saved > 0) {
+    setTimeout(() => window.location.href = "dashboard.html", 2000);
+  }
+}

@@ -112,19 +112,29 @@ ${s.code}
 
                     const snippetId = btn.getAttribute("data-id");
                     const isFavorited = btn.textContent === "⭐";
-
                     const method = isFavorited ? "DELETE" : "POST";
+
+                    // FIX: re-read token fresh on every click (not stale closure)
+                    const freshToken = localStorage.getItem("token");
+                    if (!freshToken) {
+                        alert("Please log in to favorite snippets.");
+                        return;
+                    }
 
                     const res = await fetch(
                         `http://127.0.0.1:8000/favorites/${snippetId}`,
                         {
                             method,
-                            headers
+                            headers: { "Authorization": `Bearer ${freshToken}` }
                         }
                     );
 
                     if (res.ok) {
                         btn.textContent = isFavorited ? "☆" : "⭐";
+                        // Tell dashboard favorites changed
+                        localStorage.setItem("favoritesChanged", "true");
+                    } else {
+                        console.error("Favorite toggle failed:", res.status);
                     }
                 });
 

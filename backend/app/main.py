@@ -1,4 +1,15 @@
 import os
+from dotenv import load_dotenv
+from google import genai  # Use the new SDK
+from fastapi import Body, Depends, HTTPException
+from app.dependencies import get_current_user
+from app.models import User
+
+# Load .env file
+load_dotenv()
+
+# Initialize Client
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 import random
 from datetime import date
 
@@ -171,7 +182,21 @@ def add_snippet(
 
 # ==========================================================
 # FAVORITES
+# FIX: /favorites/me MUST come BEFORE /favorites/{snippet_id}
+# FastAPI matches routes top-to-bottom; without this fix,
+# GET /favorites/me is caught as snippet_id="me" -> int("me") -> 422 crash
 # ==========================================================
+
+@app.get("/favorites/me", response_model=list[SnippetResponse])
+def get_my_favorites(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    favorites = db.query(Snippet).join(Favorite).filter(
+        Favorite.user_id == user.id
+    ).all()
+    return favorites
+
 
 @app.post("/favorites/{snippet_id}")
 def add_favorite(
@@ -191,7 +216,6 @@ def add_favorite(
     db.add(fav)
     db.commit()
 
-    # 🔥 LOG ACTIVITY
     activity = Activity(
         action="favorited snippet",
         snippet_id=snippet_id,
@@ -220,7 +244,6 @@ def remove_favorite(
     db.delete(fav)
     db.commit()
 
-    # 🔥 LOG ACTIVITY
     activity = Activity(
         action="removed favorite",
         snippet_id=snippet_id,
@@ -230,18 +253,6 @@ def remove_favorite(
     db.commit()
 
     return {"message": "Removed from favorites"}
-
-
-@app.get("/favorites/me", response_model=list[SnippetResponse])
-def get_my_favorites(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    favorites = db.query(Snippet).join(Favorite).filter(
-        Favorite.user_id == user.id
-    ).all()
-
-    return favorites
 
 
 # ==========================================================
@@ -333,3 +344,28 @@ def get_dashboard_data(
         "latest_snippet": latest_snippet.title if latest_snippet else None,
         "created_this_week": recent_created
     }
+@app.post("/snippets/generate-ai")
+async def generate_ai(payload: dict = Body(...), user: User = Depends(get_current_user)):
+    topic = payload.get("topic")
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic is required")
+    
+    # Prompt instructing Gemini to return JSON
+    prompt = (
+        f"Generate a code snippet for: {topic}. "
+        "Return ONLY a valid JSON object with these keys: "
+        "'title', 'language', 'code', 'explanation'."
+    )
+    
+    try:
+        # Generate content using the new SDK syntax
+        response = client.models.generate_content(
+            model="gemini-2.0-flash", 
+            contents=prompt
+        )
+        
+        # Strip potential markdown formatting from the response
+        raw_text = response.text.strip().replace("```json", "").replace("```", "")
+        return {"result": raw_text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
