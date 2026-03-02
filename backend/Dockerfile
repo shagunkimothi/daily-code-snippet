@@ -1,22 +1,20 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Set the working directory in the container
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Copy the requirements file first to leverage Docker cache
-# (This looks for requirements.txt in the same folder as the Dockerfile)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
 
-# Copy the 'app' directory into the container
-COPY ./app ./app
-
-# Expose port 8000 for FastAPI
 EXPOSE 8000
 
-# Run the application
-# We use app.main:app because main.py is inside the app folder
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

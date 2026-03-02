@@ -1,7 +1,11 @@
-**/.venv
-**/__pycache__
-**/.pytest_cache
-*.db
-*.sqlite3
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.venv/
 .env
-.git
+.git/
+*.md
+tests/
+*.db
