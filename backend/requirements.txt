@@ -13,7 +13,7 @@ pydantic==2.12.5
 pydantic-settings==2.12.0
 python-multipart==0.0.21
 google-genai==1.64.0
-google-auth==2.38.0
+google-auth==2.47.0
 itsdangerous==2.2.0
 cryptography==46.0.3
 anyio==4.12.0
