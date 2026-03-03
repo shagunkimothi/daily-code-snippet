@@ -18,7 +18,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const languageFilter   = document.getElementById("languageFilter");
   const difficultyFilter = document.getElementById("difficultyFilter");
   const backToDaily      = document.getElementById("backToDaily");
+   
+  const isGuest = localStorage.getItem("isGuest") === "true";
 
+  // If no token exists and they aren't a guest, kick them to the login page
+  if (!token && !isGuest) {
+    window.location.href = "auth.html";
+    return; // Stop the rest of the script from running
+  }
   /* ── THEME ── */
   if (localStorage.getItem("theme") === "light") {
     document.body.classList.add("light");

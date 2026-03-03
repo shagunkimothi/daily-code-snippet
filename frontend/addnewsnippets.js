@@ -1,6 +1,8 @@
-const ADD_API = "http://127.0.0.1:8000/snippets/add";
-const AI_API  = "http://127.0.0.1:8000/snippets/generate-ai";
+import CONFIG from './config.js';
 
+// Replace hardcoded URLs with dynamic ones
+const ADD_API = `${CONFIG.API_BASE_URL}/snippets/add`;
+const AI_API  = `${CONFIG.API_BASE_URL}/snippets/generate-ai`;
 let currentTags = [];
 
 /* ── TABS ── */

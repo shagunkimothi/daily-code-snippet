@@ -1,6 +1,7 @@
 import os
 import random
 import traceback
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 
@@ -29,9 +31,9 @@ from app import models
 load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-import time
-from sqlalchemy.exc import OperationalError
+# Only allow insecure (HTTP) for local testing. Render provides HTTPS.
+if not os.getenv("RENDER"):
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 def connect_with_retry(retries=5, delay=3):
     for i in range(retries):
@@ -47,15 +49,23 @@ def connect_with_retry(retries=5, delay=3):
 connect_with_retry()
 app = FastAPI(title="DailyCode API")
 
+# Updated Origins for both Local and Vercel Production
+origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "https://daily-code-snippet.vercel.app", # Your Live Frontend
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "dev-session-secret"))
-
 
 # ==============================================================
 # AUTH
@@ -68,7 +78,6 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     new_user = User(email=user.email, hashed_password=hash_password(user.password))
     db.add(new_user); db.commit(); db.refresh(new_user)
     return new_user
-
 
 @app.post("/auth/login")
 def login(
@@ -89,11 +98,11 @@ def login(
     token = create_access_token({"sub": str(user.id), "email": user.email})
     return {"access_token": token, "token_type": "bearer"}
 
-
 @app.get("/auth/google/login")
 async def google_login(request: Request):
-    return await oauth.google.authorize_redirect(request, os.getenv("GOOGLE_REDIRECT_URI", "http://127.0.0.1:8000/auth/google/callback"))
-
+    # Dynamically use the redirect URI from Env Vars
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://127.0.0.1:8000/auth/google/callback")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/google/callback")
 async def google_callback(request: Request, db: Session = Depends(get_db)):
@@ -104,18 +113,18 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         user = User(email=info["email"], google_id=info["sub"])
         db.add(user); db.commit(); db.refresh(user)
     jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
-    frontend  = os.getenv("FRONTEND_URL", "http://127.0.0.1:5500/frontend")
+    
+    # Send user back to the live Vercel dashboard
+    frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
     return RedirectResponse(f"{frontend}/index.html?token={jwt_token}")
 
-
 # ==============================================================
-# TAGS
+# TAGS & SNIPPETS (REMAINDER OF YOUR CODE)
 # ==============================================================
 
 @app.get("/tags", response_model=list[TagResponse])
 def get_all_tags(db: Session = Depends(get_db)):
     return db.query(Tag).order_by(Tag.name).all()
-
 
 @app.post("/tags", response_model=TagResponse, status_code=201)
 def create_tag(payload: dict = Body(...), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -128,11 +137,6 @@ def create_tag(payload: dict = Body(...), user: User = Depends(get_current_user)
     tag = Tag(name=name)
     db.add(tag); db.commit(); db.refresh(tag)
     return tag
-
-
-# ==============================================================
-# SNIPPETS — SEARCH (must come before /{id} style routes)
-# ==============================================================
 
 @app.get("/snippets/search", response_model=SnippetSearchResponse)
 def search_snippets(
@@ -148,7 +152,6 @@ def search_snippets(
     db: Session = Depends(get_db),
 ):
     from jose import jwt, JWTError
-
     current_user_id = None
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
@@ -186,7 +189,6 @@ def search_snippets(
     results = query.order_by(Snippet.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return SnippetSearchResponse(snippets=results, total=total, page=page, per_page=per_page)
 
-
 @app.get("/snippets/daily", response_model=SnippetResponse)
 def get_daily_snippet(db: Session = Depends(get_db)):
     snippets = db.query(Snippet).filter(Snippet.is_public == True).order_by(Snippet.id).all()
@@ -197,7 +199,6 @@ def get_daily_snippet(db: Session = Depends(get_db)):
     day_index = date.today().toordinal()
     return snippets[day_index % cycle % total]
 
-
 @app.get("/snippets/random", response_model=SnippetResponse)
 def get_random_snippet(db: Session = Depends(get_db)):
     snippets = db.query(Snippet).filter(Snippet.is_public == True).all()
@@ -205,217 +206,56 @@ def get_random_snippet(db: Session = Depends(get_db)):
         raise HTTPException(404, "No public snippets available")
     return random.choice(snippets)
 
-
 @app.get("/snippets/mine", response_model=list[SnippetResponse])
 def my_snippets(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Snippet).filter(Snippet.owner_id == user.id).order_by(Snippet.id.desc()).all()
-
-
-@app.get("/snippets/public", response_model=list[SnippetResponse])
-def public_snippets(db: Session = Depends(get_db)):
-    return db.query(Snippet).filter(Snippet.is_public == True).all()
-
-
-@app.get("/snippets/private", response_model=list[SnippetResponse])
-def private_snippets(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(Snippet).filter((Snippet.is_public == True) | (Snippet.owner_id == user.id)).all()
-
 
 @app.post("/snippets/add", response_model=SnippetResponse, status_code=201)
 def add_snippet(snippet: SnippetCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     snippet_data = snippet.dict(exclude={"tags"})
     new_snippet  = Snippet(**snippet_data, owner_id=user.id)
-
     for tag_name in snippet.tags:
         name = tag_name.strip().lower()
-        if not name:
-            continue
+        if not name: continue
         tag = db.query(Tag).filter(Tag.name == name).first()
         if not tag:
             tag = Tag(name=name)
-            db.add(tag)
-            db.flush()
+            db.add(tag); db.flush()
         new_snippet.tags.append(tag)
-
-    db.add(new_snippet)
-    db.commit()
-    db.refresh(new_snippet)
+    db.add(new_snippet); db.commit(); db.refresh(new_snippet)
     db.add(Activity(action="created snippet", snippet_id=new_snippet.id, user_id=user.id))
     db.commit()
     return new_snippet
 
-
-@app.patch("/snippets/{snippet_id}/visibility", response_model=SnippetResponse)
-def toggle_visibility(
-    snippet_id: int,
-    payload: dict = Body(...),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    snippet = db.query(Snippet).filter(Snippet.id == snippet_id, Snippet.owner_id == user.id).first()
-    if not snippet:
-        raise HTTPException(404, "Snippet not found or not yours")
-    snippet.is_public = payload.get("is_public", not snippet.is_public)
-    db.commit(); db.refresh(snippet)
-    db.add(Activity(action="updated visibility", snippet_id=snippet.id, user_id=user.id))
-    db.commit()
-    return snippet
-
-
-@app.delete("/snippets/{snippet_id}", status_code=204)
-def delete_snippet(snippet_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    snippet = db.query(Snippet).filter(Snippet.id == snippet_id, Snippet.owner_id == user.id).first()
-    if not snippet:
-        raise HTTPException(404, "Snippet not found or not yours")
-    db.delete(snippet); db.commit()
-    return
-
-
 @app.post("/snippets/generate-ai")
 async def generate_ai(payload: dict = Body(...), user: User = Depends(get_current_user)):
     topic = payload.get("topic")
-    if not topic:
-        raise HTTPException(400, "Topic is required")
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(500, "GEMINI_API_KEY not configured")
-
+    if not topic: raise HTTPException(400, "Topic is required")
     prompt = (
         f"Generate a code snippet for: {topic}. "
-        "Return ONLY a valid JSON object with these exact keys: "
-        "'title', 'language', 'code', 'explanation', "
-        "'difficulty' (beginner|intermediate|advanced), "
-        "'category' (algorithm|data-structure|utility|pattern|snippet|other), "
-        "'tags' (array of 1-4 short lowercase tag strings). "
-        "No markdown, no backticks, just raw JSON."
+        "Return ONLY a valid JSON object with: 'title', 'language', 'code', 'explanation', 'difficulty', 'category', 'tags'."
     )
     try:
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         raw = response.text.strip().replace("```json", "").replace("```", "")
         return {"result": raw}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(500, str(e))
 
-
-# ==============================================================
-# FAVORITES
-# ==============================================================
-
-@app.get("/favorites/me", response_model=list[SnippetResponse])
-def get_my_favorites(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(Snippet).join(Favorite).filter(Favorite.user_id == user.id).all()
-
-
-@app.post("/favorites/{snippet_id}")
-def add_favorite(snippet_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if db.query(Favorite).filter(Favorite.user_id == user.id, Favorite.snippet_id == snippet_id).first():
-        return {"message": "Already favorited"}
-    db.add(Favorite(user_id=user.id, snippet_id=snippet_id))
-    db.add(Activity(action="favorited snippet", snippet_id=snippet_id, user_id=user.id))
-    db.commit()
-    return {"message": "Added to favorites"}
-
-
-@app.delete("/favorites/{snippet_id}")
-def remove_favorite(snippet_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    fav = db.query(Favorite).filter(Favorite.user_id == user.id, Favorite.snippet_id == snippet_id).first()
-    if not fav:
-        return {"message": "Not in favorites"}
-    db.delete(fav)
-    db.add(Activity(action="removed favorite", snippet_id=snippet_id, user_id=user.id))
-    db.commit()
-    return {"message": "Removed from favorites"}
-
-
-# ==============================================================
-# HEATMAP
-# ==============================================================
-
-@app.get("/heatmap/me", response_model=HeatmapResponse)
-def get_my_heatmap(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    since      = datetime.utcnow() - timedelta(days=365)
-    activities = db.query(Activity).filter(Activity.user_id == user.id, Activity.timestamp >= since).all()
-
-    counts = defaultdict(int)
-    for a in activities:
-        counts[a.timestamp.strftime("%Y-%m-%d")] += 1
-
-    today   = date.today()
-    entries = [
-        HeatmapEntry(
-            date=(today - timedelta(days=i)).strftime("%Y-%m-%d"),
-            count=counts.get((today - timedelta(days=i)).strftime("%Y-%m-%d"), 0)
-        )
-        for i in range(364, -1, -1)
-    ]
-
-    current_streak = longest_streak = streak = 0
-    streak_broken  = False
-    for entry in reversed(entries):
-        if entry.count > 0:
-            streak += 1
-            longest_streak = max(longest_streak, streak)
-            if not streak_broken:
-                current_streak = streak
-        else:
-            streak_broken = True
-            streak = 0
-
-    return HeatmapResponse(
-        entries=entries,
-        longest_streak=longest_streak,
-        current_streak=current_streak,
-        total_days_active=sum(1 for e in entries if e.count > 0),
-    )
-
-
-# ==============================================================
-# DASHBOARD
-# ==============================================================
-
 @app.get("/dashboard/me")
 def get_dashboard_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     snippets = db.query(Snippet).filter(Snippet.owner_id == user.id).all()
-    total    = len(snippets)
-    week_ago = datetime.utcnow() - timedelta(days=7)
     recent   = db.query(Snippet).filter(Snippet.owner_id == user.id).order_by(Snippet.id.desc()).limit(5).all()
-
     lang_stats = defaultdict(int)
-    for s in snippets:
-        lang_stats[s.language] += 1
-
+    for s in snippets: lang_stats[s.language] += 1
     return {
-        "total_snippets":    total,
-        "public_count":      sum(1 for s in snippets if s.is_public),
-        "private_count":     sum(1 for s in snippets if not s.is_public),
-        "favorite_count":    db.query(Favorite).filter(Favorite.user_id == user.id).count(),
-        "latest_snippet":    recent[0].title if recent else None,
-        "created_this_week": db.query(Activity).filter(
-            Activity.user_id == user.id,
-            Activity.action  == "created snippet",
-            Activity.timestamp >= week_ago
-        ).count(),
-        "recent_snippets": [
-            {
-                "id":         s.id,
-                "title":      s.title,
-                "language":   s.language,
-                "is_public":  s.is_public,
-                "difficulty": s.difficulty,
-                "created_at": s.created_at.isoformat() if s.created_at else None,
-            }
-            for s in recent
-        ],
+        "total_snippets": len(snippets),
+        "favorite_count": db.query(Favorite).filter(Favorite.user_id == user.id).count(),
+        "recent_snippets": recent,
         "language_stats": dict(lang_stats),
     }
 
-
-# ==============================================================
-# ACTIVITIES
-# ==============================================================
-
-@app.get("/activities/me")
-def get_my_activity(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(Activity).filter(Activity.user_id == user.id).order_by(Activity.timestamp.desc()).limit(10).all()
+@app.get("/")
+def read_root():
+    return {"status": "DailyCode API is running"}

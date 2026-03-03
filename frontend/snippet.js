@@ -1,3 +1,5 @@
+import CONFIG from './config.js';
+
 document.addEventListener("DOMContentLoaded", async () => {
 
     const galleryList = document.getElementById("galleryList");
@@ -28,8 +30,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     ========================= */
 
     const API_URL = token
-        ? "http://127.0.0.1:8000/snippets/private"
-        : "http://127.0.0.1:8000/snippets/public";
+        ? `${CONFIG.API_BASE_URL}/snippets/private`
+        : `${CONFIG.API_BASE_URL}/snippets/public`;
 
     const headers = token
         ? { "Authorization": `Bearer ${token}` }
@@ -55,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         if (token) {
             const favRes = await fetch(
-                "http://127.0.0.1:8000/favorites/me",
+                `${CONFIG.API_BASE_URL}/favorites/me`,
                 { headers }
             );
             const favSnippets = await favRes.json();
@@ -114,7 +116,6 @@ ${s.code}
                     const isFavorited = btn.textContent === "⭐";
                     const method = isFavorited ? "DELETE" : "POST";
 
-                    // FIX: re-read token fresh on every click (not stale closure)
                     const freshToken = localStorage.getItem("token");
                     if (!freshToken) {
                         alert("Please log in to favorite snippets.");
@@ -122,7 +123,7 @@ ${s.code}
                     }
 
                     const res = await fetch(
-                        `http://127.0.0.1:8000/favorites/${snippetId}`,
+                        `${CONFIG.API_BASE_URL}/favorites/${snippetId}`,
                         {
                             method,
                             headers: { "Authorization": `Bearer ${freshToken}` }
@@ -131,7 +132,6 @@ ${s.code}
 
                     if (res.ok) {
                         btn.textContent = isFavorited ? "☆" : "⭐";
-                        // Tell dashboard favorites changed
                         localStorage.setItem("favoritesChanged", "true");
                     } else {
                         console.error("Favorite toggle failed:", res.status);

@@ -1,4 +1,8 @@
-const AUTH_API = "http://127.0.0.1:8000/auth";
+// frontend/auth.js
+import CONFIG from './config.js';
+
+// Use the dynamic URL from config.js
+const AUTH_API = `${CONFIG.API_BASE_URL}/auth`;
 
 /* =========================
    1. AUTH GUARD

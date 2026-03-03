@@ -1,4 +1,6 @@
-const API = "http://127.0.0.1:8000";
+import CONFIG from './config.js';
+
+const API = CONFIG.API_BASE_URL;
 
 window.addEventListener("pageshow", (e) => {
   if (e.persisted ||

@@ -1,3 +1,5 @@
+import CONFIG from './config.js';
+
 document.addEventListener("DOMContentLoaded", async () => {
   const favoritesList = document.getElementById("favoritesList");
   const token = localStorage.getItem("token");
@@ -10,8 +12,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   favoritesList.innerHTML = `<p class="text-gray-400">Loading favorites...</p>`;
 
   try {
-    // FIX: fetch from BACKEND API, not localStorage
-    const res = await fetch("http://127.0.0.1:8000/favorites/me", {
+    const res = await fetch(`${CONFIG.API_BASE_URL}/favorites/me`, {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Cache-Control": "no-cache"
@@ -56,12 +57,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (window.Prism) Prism.highlightAll();
 
-    // FIX: Remove via backend API
     document.querySelectorAll(".remove-fav").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         const snippetId = e.target.dataset.id;
         try {
-          const res = await fetch(`http://127.0.0.1:8000/favorites/${snippetId}`, {
+          const res = await fetch(`${CONFIG.API_BASE_URL}/favorites/${snippetId}`, {
             method: "DELETE",
             headers: { "Authorization": `Bearer ${token}` }
           });

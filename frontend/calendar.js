@@ -1,3 +1,5 @@
+import CONFIG from './config.js';
+
 let currentDate = new Date();
 let snippets = [];
 
@@ -15,19 +17,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 async function loadSnippets() {
   const token = localStorage.getItem("token");
   const endpoint = token 
-    ? "http://127.0.0.1:8000/snippets/private"
-    : "http://127.0.0.1:8000/snippets/public";
-
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
+    ? `${CONFIG.API_BASE_URL}/snippets/private`
+    : `${CONFIG.API_BASE_URL}/snippets/public`;
+    
   try {
-    const res = await fetch(endpoint, { headers });
-    snippets = await res.json();
+    const response = await fetch(endpoint, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    });
+    if (response.ok) {
+      snippets = await response.ok ? await response.json() : [];
+    }
   } catch (err) {
-    console.error("Error loading snippets:", err);
+    console.error("Failed to load snippets for calendar:", err);
   }
 }
-
+// ... rest of your renderCalendar logic
 function renderCalendar() {
   const grid = document.getElementById("calendarGrid");
   grid.innerHTML = "";
