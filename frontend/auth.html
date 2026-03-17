@@ -23,11 +23,11 @@
 
       <div class="divider">OR</div>
 
-      <a class="google-btn" href="https://daily-code-snippet.onrender.com/auth/google/login"></a>
-          <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_2013_Google.png" width="20" />
-
+      <!-- ✅ Fixed: was malformed HTML with hardcoded URL, now uses googleLogin() from auth.js -->
+      <button class="google-btn" onclick="googleLogin()">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_2013_Google.png" width="20" />
         Sign in with Google
-      </a>
+      </button>
 
       <button class="btn-text" onclick="continueAsGuest()">
         Skip login and continue as Guest &rarr;

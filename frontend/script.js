@@ -1,4 +1,6 @@
-const API = "http://127.0.0.1:8000";
+import CONFIG from './config.js';
+
+const API = CONFIG.API_BASE_URL;  // ✅ Fixed: was hardcoded to http://127.0.0.1:8000
 let currentSnippetId = null;
 let isRandomMode = false;
 let activeTag = "";
@@ -24,8 +26,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // If no token exists and they aren't a guest, kick them to the login page
   if (!token && !isGuest) {
     window.location.href = "auth.html";
-    return; // Stop the rest of the script from running
+    return;
   }
+
   /* ── THEME ── */
   if (localStorage.getItem("theme") === "light") {
     document.body.classList.add("light");
@@ -222,7 +225,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function loadSnippet(url, isRandom) {
     isRandomMode = isRandom;
 
-    // Show/hide random vs daily labels
     const randomLabel = document.getElementById("randomLabel");
     const sectionDate = document.getElementById("countdown");
 
@@ -239,13 +241,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await res.json();
       currentSnippetId = data.id;
 
-      document.getElementById("snippetTitle").innerText      = data.title;
-      document.getElementById("snippetCode").textContent     = data.code;
+      document.getElementById("snippetTitle").innerText       = data.title;
+      document.getElementById("snippetCode").textContent      = data.code;
       document.getElementById("snippetExplanation").innerText = data.explanation || "";
       document.getElementById("snippetLang").innerText        =
         `${data.language} • ${data.is_public ? "Public" : "Private"}`;
 
-      // Footer: difficulty + tags
       const footer    = document.getElementById("snippetFooter");
       const diffClass = `diff-${data.difficulty || "beginner"}`;
       const tagBadges = (data.tags || []).map(t => `<span class="tag-badge">${t.name}</span>`).join("");

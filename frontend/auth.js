@@ -1,12 +1,10 @@
 // frontend/auth.js
 import CONFIG from './config.js';
 
-// Use the dynamic URL from config.js
 const AUTH_API = `${CONFIG.API_BASE_URL}/auth`;
 
 /* =========================
    1. AUTH GUARD
-   Redirects logged-in users to Index
 ========================= */
 (function () {
   const token = localStorage.getItem("token");
@@ -17,11 +15,22 @@ const AUTH_API = `${CONFIG.API_BASE_URL}/auth`;
       window.location.replace("index.html");
     }
   }
+
+  // ✅ Handle token from Google OAuth redirect (?token=...)
+  const params = new URLSearchParams(window.location.search);
+  const googleToken = params.get("token");
+  if (googleToken) {
+    localStorage.setItem("token", googleToken);
+    localStorage.removeItem("isGuest");
+    // Clean URL and redirect to dashboard
+    window.history.replaceState({}, document.title, window.location.pathname);
+    window.location.replace("index.html");
+  }
 })();
 
 
 /* =========================
-   2. LOGIN (Fixed Error Handling)
+   2. LOGIN
 ========================= */
 async function login() {
   const email = document.getElementById("email").value;
@@ -36,14 +45,12 @@ async function login() {
       body: new URLSearchParams({ username: email, password })
     });
 
-    // CRITICAL FIX: Check for server errors (HTML responses) before parsing JSON
     if (!res.ok) {
-      const text = await res.text(); // Read as text first
+      const text = await res.text();
       try {
-        const json = JSON.parse(text); // Try to parse as JSON
+        const json = JSON.parse(text);
         throw new Error(json.detail || "Login failed");
       } catch (e) {
-        // If it wasn't JSON, it was likely an HTML error page (500/404)
         console.error("Server Error HTML:", text);
         throw new Error(`Server Error (${res.status}). Check console.`);
       }
@@ -86,17 +93,33 @@ async function signup() {
     }
 
     alert("Signup successful! Please log in.");
-    
+
   } catch (err) {
     alert(err.message);
   }
 }
 
 /* =========================
-   4. GUEST MODE
+   4. GOOGLE LOGIN  ✅ Fixed: was missing entirely
+========================= */
+function googleLogin() {
+  window.location.href = `${CONFIG.API_BASE_URL}/auth/google/login`;
+}
+
+/* =========================
+   5. GUEST MODE
 ========================= */
 function continueAsGuest() {
   localStorage.setItem("isGuest", "true");
   localStorage.removeItem("token");
   window.location.href = "index.html";
 }
+
+/* =========================
+   6. EXPOSE FUNCTIONS GLOBALLY
+   (so onclick="" in HTML works)
+========================= */
+window.login = login;
+window.signup = signup;
+window.googleLogin = googleLogin;
+window.continueAsGuest = continueAsGuest;

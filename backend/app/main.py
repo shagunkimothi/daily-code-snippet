@@ -31,8 +31,9 @@ from app import models
 load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Only allow insecure (HTTP) for local testing. Render provides HTTPS.
-if not os.getenv("RENDER"):
+# ✅ Fixed: os.getenv("RENDER") returns string "false" which is truthy.
+# Now we explicitly check for the string "true".
+if os.getenv("RENDER", "false").lower() != "true":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 def connect_with_retry(retries=5, delay=3):
@@ -49,13 +50,12 @@ def connect_with_retry(retries=5, delay=3):
 connect_with_retry()
 app = FastAPI(title="DailyCode API")
 
-# Updated Origins for both Local and Vercel Production
 origins = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "https://daily-code-snippet.vercel.app", # Your Live Frontend
+    "https://daily-code-snippet.vercel.app",
 ]
 
 app.add_middleware(
@@ -100,7 +100,6 @@ def login(
 
 @app.get("/auth/google/login")
 async def google_login(request: Request):
-    # Dynamically use the redirect URI from Env Vars
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://127.0.0.1:8000/auth/google/callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -114,12 +113,13 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         db.add(user); db.commit(); db.refresh(user)
     jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
     
-    # Send user back to the live Vercel dashboard
     frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
-    return RedirectResponse(f"{frontend}/index.html?token={jwt_token}")
+    return RedirectResponse(f"{frontend}/auth.html?token={jwt_token}")
+    # ✅ Fixed: redirects to auth.html so auth.js can pick up the token
+    # and then redirect to index.html cleanly
 
 # ==============================================================
-# TAGS & SNIPPETS (REMAINDER OF YOUR CODE)
+# TAGS & SNIPPETS
 # ==============================================================
 
 @app.get("/tags", response_model=list[TagResponse])
