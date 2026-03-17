@@ -31,8 +31,6 @@ from app import models
 load_dotenv()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# ✅ Fixed: os.getenv("RENDER") returns string "false" which is truthy.
-# Now we explicitly check for the string "true".
 if os.getenv("RENDER", "false").lower() != "true":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
@@ -56,6 +54,7 @@ origins = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "https://daily-code-snippet.vercel.app",
+    "https://shagunkimothi.github.io",
 ]
 
 app.add_middleware(
@@ -105,21 +104,18 @@ async def google_login(request: Request):
 
 @app.get("/auth/google/callback")
 async def google_callback(request: Request, db: Session = Depends(get_db)):
-    token   = await oauth.google.authorize_access_token(request)
-    info    = token.get("userinfo")
-    user    = db.query(User).filter(User.email == info["email"]).first()
+    token = await oauth.google.authorize_access_token(request)
+    info  = token.get("userinfo")
+    user  = db.query(User).filter(User.email == info["email"]).first()
     if not user:
         user = User(email=info["email"], google_id=info["sub"])
         db.add(user); db.commit(); db.refresh(user)
     jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
-    
-    frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
+    frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app/frontend")
     return RedirectResponse(f"{frontend}/auth.html?token={jwt_token}")
-    # ✅ Fixed: redirects to auth.html so auth.js can pick up the token
-    # and then redirect to index.html cleanly
 
 # ==============================================================
-# TAGS & SNIPPETS
+# TAGS
 # ==============================================================
 
 @app.get("/tags", response_model=list[TagResponse])
@@ -137,6 +133,10 @@ def create_tag(payload: dict = Body(...), user: User = Depends(get_current_user)
     tag = Tag(name=name)
     db.add(tag); db.commit(); db.refresh(tag)
     return tag
+
+# ==============================================================
+# SNIPPETS
+# ==============================================================
 
 @app.get("/snippets/search", response_model=SnippetSearchResponse)
 def search_snippets(
@@ -243,17 +243,128 @@ async def generate_ai(payload: dict = Body(...), user: User = Depends(get_curren
         traceback.print_exc()
         raise HTTPException(500, str(e))
 
+# ==============================================================
+# FAVORITES  ✅ All three routes added
+# ==============================================================
+
+@app.get("/favorites/me", response_model=list[SnippetResponse])
+def get_my_favorites(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    favs = db.query(Favorite).filter(Favorite.user_id == user.id).all()
+    return [fav.snippet for fav in favs if fav.snippet]
+
+@app.post("/favorites/{snippet_id}", status_code=201)
+def add_favorite(snippet_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    snippet = db.query(Snippet).filter(Snippet.id == snippet_id).first()
+    if not snippet:
+        raise HTTPException(404, "Snippet not found")
+    existing = db.query(Favorite).filter(
+        Favorite.user_id == user.id,
+        Favorite.snippet_id == snippet_id
+    ).first()
+    if existing:
+        raise HTTPException(400, "Already favorited")
+    db.add(Favorite(user_id=user.id, snippet_id=snippet_id))
+    db.add(Activity(action="favorited snippet", snippet_id=snippet_id, user_id=user.id))
+    db.commit()
+    return {"status": "added"}
+
+@app.delete("/favorites/{snippet_id}")
+def remove_favorite(snippet_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    fav = db.query(Favorite).filter(
+        Favorite.user_id == user.id,
+        Favorite.snippet_id == snippet_id
+    ).first()
+    if not fav:
+        raise HTTPException(404, "Favorite not found")
+    db.delete(fav)
+    db.commit()
+    return {"status": "removed"}
+
+# ==============================================================
+# HEATMAP  ✅ Added missing route
+# ==============================================================
+
+@app.get("/heatmap/me", response_model=HeatmapResponse)
+def get_heatmap(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    today = date.today()
+    start = today - timedelta(days=364)
+
+    activities = db.query(Activity).filter(
+        Activity.user_id  == user.id,
+        Activity.timestamp >= datetime.combine(start, datetime.min.time())
+    ).all()
+
+    counts: dict[str, int] = defaultdict(int)
+    for a in activities:
+        day = a.timestamp.date().isoformat()
+        counts[day] += 1
+
+    entries = []
+    current = start
+    while current <= today:
+        iso = current.isoformat()
+        entries.append(HeatmapEntry(date=iso, count=counts.get(iso, 0)))
+        current += timedelta(days=1)
+
+    # Longest streak
+    longest_streak = streak = 0
+    for entry in entries:
+        if entry.count > 0:
+            streak += 1
+            longest_streak = max(longest_streak, streak)
+        else:
+            streak = 0
+
+    # Current streak (count backwards from today)
+    current_streak = 0
+    for entry in reversed(entries):
+        if entry.count > 0:
+            current_streak += 1
+        else:
+            break
+
+    total_days_active = sum(1 for e in entries if e.count > 0)
+
+    return HeatmapResponse(
+        entries=entries,
+        longest_streak=longest_streak,
+        current_streak=current_streak,
+        total_days_active=total_days_active,
+    )
+
+# ==============================================================
+# DASHBOARD  ✅ Added missing fields
+# ==============================================================
+
 @app.get("/dashboard/me")
 def get_dashboard_data(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     snippets = db.query(Snippet).filter(Snippet.owner_id == user.id).all()
     recent   = db.query(Snippet).filter(Snippet.owner_id == user.id).order_by(Snippet.id.desc()).limit(5).all()
-    lang_stats = defaultdict(int)
-    for s in snippets: lang_stats[s.language] += 1
+
+    lang_stats    = defaultdict(int)
+    public_count  = 0
+    private_count = 0
+    for s in snippets:
+        lang_stats[s.language] += 1
+        if s.is_public:
+            public_count += 1
+        else:
+            private_count += 1
+
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    created_this_week = db.query(Snippet).filter(
+        Snippet.owner_id == user.id,
+        Snippet.created_at >= week_ago
+    ).count()
+
     return {
-        "total_snippets": len(snippets),
-        "favorite_count": db.query(Favorite).filter(Favorite.user_id == user.id).count(),
-        "recent_snippets": recent,
-        "language_stats": dict(lang_stats),
+        "total_snippets":    len(snippets),
+        "public_count":      public_count,
+        "private_count":     private_count,
+        "favorite_count":    db.query(Favorite).filter(Favorite.user_id == user.id).count(),
+        "created_this_week": created_this_week,
+        "recent_snippets":   recent,
+        "language_stats":    dict(lang_stats),
     }
 
 @app.get("/")

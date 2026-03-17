@@ -23,7 +23,6 @@
 
       <div class="divider">OR</div>
 
-      <!-- ✅ Fixed: was malformed HTML with hardcoded URL, now uses googleLogin() from auth.js -->
       <button class="google-btn" onclick="googleLogin()">
         <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Logo_2013_Google.png" width="20" />
         Sign in with Google
@@ -35,6 +34,20 @@
 
     </div>
   </div>
+
+  <!-- COPYRIGHT FOOTER -->
+  <footer style="
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--muted, #888);
+    background: transparent;
+  ">
+    © 2026 Daily Code Snippet · Built by Shagun Kimothi
+  </footer>
 
   <script type="module" src="auth.js"></script>
 </body>

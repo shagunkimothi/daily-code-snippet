@@ -20,7 +20,6 @@
 
     .results-count { font-size:13px; color:var(--muted); margin-bottom:6px; min-height:18px; }
 
-    /* Daily snippet section label */
     .section-label {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 10px;
@@ -41,10 +40,7 @@
     .diff-intermediate { background:rgba(234,179,8,0.15);  color:#eab308; border:1px solid rgba(234,179,8,0.3); }
     .diff-advanced     { background:rgba(239,68,68,0.15);  color:#ef4444; border:1px solid rgba(239,68,68,0.3); }
 
-    /* Random mode label */
-    .random-label {
-      display:none; align-items:center; gap:8px; margin-bottom:10px;
-    }
+    .random-label { display:none; align-items:center; gap:8px; margin-bottom:10px; }
     .random-label.visible { display:flex; }
     .random-badge {
       font-size:11px; padding:3px 10px; border-radius:999px;
@@ -64,11 +60,23 @@
     .page-info { font-size:13px; color:var(--muted); }
     #galleryList .snippet-card { margin-bottom:1.2rem; }
 
-    /* Next snippet countdown */
-    .next-snippet-info {
-      font-size:12px; color:var(--muted); text-align:right;
-    }
+    .next-snippet-info { font-size:12px; color:var(--muted); text-align:right; }
     .next-snippet-info span { color:var(--primary); font-weight:600; }
+
+    /* Copyright footer */
+    .site-footer {
+      text-align: center;
+      padding: 1.5rem 1rem 1rem;
+      font-size: 12px;
+      color: var(--muted, #888);
+      border-top: 1px solid var(--border, #1e293b);
+      margin-top: 2rem;
+    }
+    .site-footer a {
+      color: var(--primary, #7c7ff5);
+      text-decoration: none;
+    }
+    .site-footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -145,9 +153,8 @@
 
       <p class="results-count" id="resultsCount"></p>
 
-      <!-- TODAY'S SNIPPET (default view) -->
+      <!-- TODAY'S SNIPPET -->
       <div id="dailySection">
-        <!-- Section label -->
         <div class="section-label">
           <div class="section-label-left">
             <span class="section-title">📅 Today's Snippet</span>
@@ -156,7 +163,6 @@
           <span class="next-snippet-info">Next snippet in <span id="countdown">–</span></span>
         </div>
 
-        <!-- Random mode indicator -->
         <div class="random-label" id="randomLabel">
           <span class="random-badge">🔀 Random Snippet</span>
           <button class="back-to-daily" id="backToDaily">← Back to today's snippet</button>
@@ -183,12 +189,18 @@
         <button id="nextPage">Next →</button>
       </div>
 
+      <!-- COPYRIGHT FOOTER -->
+      <footer class="site-footer">
+        © 2026 Daily Code Snippet · Built by Shagun Kimothi ·
+        <a href="https://github.com/shagunkimothi/daily-code-snippet" target="_blank">GitHub</a>
+      </footer>
+
     </div>
   </div>
 </div>
 
 <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-<script type ="module" src="Sidebar.js"></script>
-<script type ="module" src="script.js"></script>
+<script type="module" src="Sidebar.js"></script>
+<script type="module" src="script.js"></script>
 </body>
 </html>
