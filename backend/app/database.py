@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=False)
 
 # Render provides DATABASE_URL automatically when you attach a Postgres DB
 # Locally you set it in your .env file

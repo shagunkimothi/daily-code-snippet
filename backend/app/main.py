@@ -30,7 +30,7 @@ from app.schemas import (
 from app.security import hash_password, verify_password
 from app import models
 
-load_dotenv()
+load_dotenv(override=False)
 
 class SnippetCreate(BaseModel):
     title: str

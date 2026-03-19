@@ -4,7 +4,7 @@ from jose import jwt
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=False)
 
 # =========================
 # ENV VARIABLES
