@@ -6,6 +6,8 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from dotenv import load_dotenv
 from google import genai
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,13 +24,29 @@ from app.dependencies import get_current_user
 from app.models import Activity, Favorite, Snippet, Tag, User, snippet_tags
 from app.schemas import (
     HeatmapEntry, HeatmapResponse,
-    SnippetCreate, SnippetResponse, SnippetSearchResponse,
+    SnippetResponse, SnippetSearchResponse,
     TagResponse, UserCreate, UserResponse,
 )
 from app.security import hash_password, verify_password
 from app import models
 
 load_dotenv()
+
+class SnippetCreate(BaseModel):
+    title: str
+    language: str = "JavaScript"
+    code: str
+    explanation: Optional[str] = ""
+    difficulty: str = "beginner"
+    category: str = "snippet"
+    tags: List[str] = []
+    is_public: bool = True
+
+
+class TopicRequest(BaseModel):
+    topic: str
+    language: str = "JavaScript"
+
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 if os.getenv("RENDER", "false").lower() != "true":
@@ -210,41 +228,80 @@ def get_random_snippet(db: Session = Depends(get_db)):
 def my_snippets(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Snippet).filter(Snippet.owner_id == user.id).order_by(Snippet.id.desc()).all()
 
-@app.post("/snippets/add", response_model=SnippetResponse, status_code=201)
-def add_snippet(snippet: SnippetCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    snippet_data = snippet.dict(exclude={"tags"})
-    new_snippet  = Snippet(**snippet_data, owner_id=user.id)
+@app.post("/snippets/add")
+async def add_snippet(snippet: SnippetCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    # Handle tags — convert string names to Tag objects
+    tag_objects = []
     for tag_name in snippet.tags:
-        name = tag_name.strip().lower()
-        if not name: continue
-        tag = db.query(Tag).filter(Tag.name == name).first()
+        tag_name = tag_name.strip().lower()
+        tag = db.query(Tag).filter(Tag.name == tag_name).first()
         if not tag:
-            tag = Tag(name=name)
-            db.add(tag); db.flush()
-        new_snippet.tags.append(tag)
-    db.add(new_snippet); db.commit(); db.refresh(new_snippet)
-    db.add(Activity(action="created snippet", snippet_id=new_snippet.id, user_id=user.id))
+            tag = Tag(name=tag_name)
+            db.add(tag)
+            db.flush()  # get the id without committing
+        tag_objects.append(tag)
+
+    snippet_data = snippet.dict()
+    snippet_data.pop("tags")  # remove raw strings
+
+    new_snippet = Snippet(
+        **snippet_data,
+        owner_id=user.id,
+        created_at=datetime.utcnow(),
+        tags=tag_objects  # pass Tag objects instead
+    )
+    db.add(new_snippet)
     db.commit()
-    return new_snippet
+    db.refresh(new_snippet)
+    return {"message": "Snippet added successfully", "id": new_snippet.id}
 
 @app.post("/snippets/generate-ai")
-async def generate_ai(payload: dict = Body(...), user: User = Depends(get_current_user)):
-    topic = payload.get("topic")
-    if not topic: raise HTTPException(400, "Topic is required")
-    prompt = (
-        f"Generate a code snippet for: {topic}. "
-        "Return ONLY a valid JSON object with: 'title', 'language', 'code', 'explanation', 'difficulty', 'category', 'tags'."
+async def generate_ai_snippet(request: TopicRequest, user=Depends(get_current_user)):
+    prompt = f"""
+    Generate a code snippet for the topic: {request.topic} in {request.language}.
+    The code MUST be written in {request.language}.
+    Return ONLY a JSON object with these keys:
+    "title", "language", "code", "explanation", "difficulty", "category", "tags".
+    Set "language" to "{request.language}".
+    Do not use markdown code blocks. Return raw JSON only.
+    """
+
+    # Try models in order until one works
+    models_to_try = [
+    "models/gemini-2.0-flash",
+    "models/gemini-2.5-flash",
+    "models/gemini-2.0-flash-001",
+]
+
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            if response and response.text:
+                print(f"✅ Used model: {model_name}")
+                return {"result": response.text}
+        except Exception as e:
+            print(f"❌ Model {model_name} failed: {e}")
+            last_error = e
+            continue
+
+    print(f"GenAI Error: All models failed. Last error: {last_error}")
+    raise HTTPException(
+        status_code=500,
+        detail="AI generation is currently unavailable. Please try again later."
     )
-    try:
-        response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-        raw = response.text.strip().replace("```json", "").replace("```", "")
-        return {"result": raw}
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(500, str(e))
 
 # ==============================================================
-# FAVORITES  ✅ All three routes added
+# DEBUG — remove this route after confirming which model works
+# ==============================================================
+
+
+
+# ==============================================================
+# FAVORITES
 # ==============================================================
 
 @app.get("/favorites/me", response_model=list[SnippetResponse])
@@ -281,7 +338,7 @@ def remove_favorite(snippet_id: int, user: User = Depends(get_current_user), db:
     return {"status": "removed"}
 
 # ==============================================================
-# HEATMAP  ✅ Added missing route
+# HEATMAP
 # ==============================================================
 
 @app.get("/heatmap/me", response_model=HeatmapResponse)
@@ -306,7 +363,6 @@ def get_heatmap(user: User = Depends(get_current_user), db: Session = Depends(ge
         entries.append(HeatmapEntry(date=iso, count=counts.get(iso, 0)))
         current += timedelta(days=1)
 
-    # Longest streak
     longest_streak = streak = 0
     for entry in entries:
         if entry.count > 0:
@@ -315,7 +371,6 @@ def get_heatmap(user: User = Depends(get_current_user), db: Session = Depends(ge
         else:
             streak = 0
 
-    # Current streak (count backwards from today)
     current_streak = 0
     for entry in reversed(entries):
         if entry.count > 0:
@@ -333,7 +388,7 @@ def get_heatmap(user: User = Depends(get_current_user), db: Session = Depends(ge
     )
 
 # ==============================================================
-# DASHBOARD  ✅ Added missing fields
+# DASHBOARD
 # ==============================================================
 
 @app.get("/dashboard/me")

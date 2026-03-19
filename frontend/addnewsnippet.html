@@ -30,10 +30,11 @@
     .btn-submit:hover { opacity:0.9; transform:translateY(-1px); }
     .btn-submit:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
     .ai-section,.import-section { display:flex; flex-direction:column; gap:14px; }
-    .ai-section input,.import-section textarea {
+    .ai-section input,.ai-section select,.import-section textarea {
       padding:12px 16px; background:var(--card); border:1px solid var(--border); border-radius:10px;
       color:var(--text); font-size:14px; box-sizing:border-box; width:100%; font-family:inherit;
     }
+    .ai-section select:focus, .ai-section input:focus { outline:none; border-color:#7c6fff; }
     .import-section textarea { min-height:160px; font-family:monospace; font-size:13px; resize:vertical; }
     .tags-input-wrap { position:relative; }
     .tags-preview { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; min-height:20px; }
@@ -48,6 +49,7 @@
     .toast { position:fixed; bottom:30px; right:30px; background:#22c55e; color:white; padding:14px 22px; border-radius:10px; font-size:14px; font-weight:600; opacity:0; transform:translateY(20px); transition:all 0.3s ease; z-index:999; pointer-events:none; }
     .toast.show { opacity:1; transform:translateY(0); }
     .field-label { font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .ai-hint { font-size:12px; color:var(--muted); margin-top:-6px; }
   </style>
 </head>
 <body>
@@ -59,10 +61,10 @@
       <h1>Add to Library</h1>
     </div>
 
-    <div class="tabs">
+    <div class="tabs tabs-container">
       <button class="tab-btn active" data-tab="manual">Manual Entry</button>
-      <button class="tab-btn" data-tab="ai">✨ AI Magic</button>
-      <button class="tab-btn" data-tab="import">📥 Bulk Import</button>
+      <button class="tab-btn" data-tab="ai-magic">AI Generate</button>
+      <button class="tab-btn" data-tab="bulk">Bulk Import</button>
     </div>
 
     <!-- MANUAL TAB -->
@@ -118,19 +120,42 @@
     </div>
 
     <!-- AI TAB -->
-    <div id="ai" class="tab-content">
+    <div id="ai-magic" class="tab-content">
       <div class="ai-section">
-        <input type="text" id="aiTopic" placeholder="e.g. Binary Search in Python, Debounce in JavaScript..." />
-        <button onclick="generateAI()" class="btn-submit" id="aiBtn">✨ Generate Snippet</button>
+        <input type="text" id="aiTopic" placeholder="e.g. Binary Search, Debounce function, Merge Sort..." />
+        <p class="ai-hint">💡 Describe what you want — AI will generate the full snippet for you.</p>
+
+        <select id="aiLanguage">
+          <option value="Python">🐍 Python</option>
+          <option value="JavaScript">🌐 JavaScript</option>
+          <option value="TypeScript">🔷 TypeScript</option>
+          <option value="Java">☕ Java</option>
+          <option value="C++">⚙️ C++</option>
+          <option value="C">🔧 C</option>
+          <option value="Go">🐹 Go</option>
+          <option value="Rust">🦀 Rust</option>
+          <option value="HTML">🧱 HTML</option>
+          <option value="CSS">🎨 CSS</option>
+          <option value="SQL">🗄️ SQL</option>
+          <option value="Bash">🖥️ Bash</option>
+          <option value="Kotlin">🟣 Kotlin</option>
+          <option value="Swift">🍎 Swift</option>
+          <option value="PHP">🐘 PHP</option>
+          <option value="Ruby">💎 Ruby</option>
+          <option value="R">📊 R</option>
+          <option value="Dart">🎯 Dart</option>
+        </select>
+
+        <button class="btn-submit" id="aiBtn">✨ Generate Snippet</button>
       </div>
     </div>
 
     <!-- IMPORT TAB -->
-    <div id="import" class="tab-content">
+    <div id="bulk" class="tab-content">
       <div class="import-section">
         <input type="file" id="jsonFile" accept=".json" />
         <textarea id="bulkText" placeholder='[{"title":"...","language":"...","code":"...","tags":["loop","array"]}]'></textarea>
-        <button onclick="importSnippets()" class="btn-submit">📥 Import Snippets</button>
+        <button id="importBtn" class="btn-submit">📥 Import Snippets</button>
       </div>
     </div>
   </div>
