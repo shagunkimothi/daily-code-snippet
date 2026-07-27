@@ -1,0 +1,217 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
+@import 'prismjs/themes/prism-tomorrow.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================================================
+   THEME VARIABLES — ported 1:1 from the legacy style.css
+   Dark (default) : deep space obsidian + electric cyan
+   Light (.light)  : warm ivory + ink blue
+===================================================== */
+
+:root {
+  --bg:              #080c14;
+  --bg-secondary:    #0b0f1a;
+  --card:            #0d1120;
+  --card-hover:      #111627;
+  --card-elevated:   #141930;
+
+  --text:            #d8e8f8;
+  --text-secondary:  #6e88a8;
+  --muted:           #334455;
+
+  --primary:         #00d4ff;
+  --primary-hover:   #00bbdf;
+  --primary-dim:     #007a99;
+  --primary-subtle:  rgba(0, 212, 255, 0.07);
+  --primary-glow:    rgba(0, 212, 255, 0.18);
+  --primary-glow-lg: rgba(0, 212, 255, 0.35);
+
+  --accent:          #7b5fff;
+  --accent-subtle:   rgba(123, 95, 255, 0.1);
+
+  --green:           #00e5a0;
+  --green-subtle:    rgba(0, 229, 160, 0.1);
+  --amber:           #ffaa30;
+  --amber-subtle:    rgba(255, 170, 48, 0.1);
+  --red:             #ff4466;
+  --red-subtle:      rgba(255, 68, 102, 0.1);
+
+  --border:          rgba(255, 255, 255, 0.05);
+  --border-hover:    rgba(0, 212, 255, 0.2);
+  --border-card:     rgba(0, 212, 255, 0.06);
+
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.6);
+  --shadow-md:       0 4px 24px rgba(0, 0, 0, 0.7);
+  --shadow-lg:       0 12px 48px rgba(0, 0, 0, 0.8);
+  --shadow-primary:  0 4px 20px rgba(0, 212, 255, 0.22);
+  --shadow-cyan-lg:  0 8px 40px rgba(0, 212, 255, 0.3);
+
+  --sidebar-bg:      #07090f;
+  --sidebar-border:  rgba(0, 212, 255, 0.06);
+  --sidebar-text:    #2a3a50;
+  --sidebar-hover:   rgba(0, 212, 255, 0.05);
+
+  --input-bg:        #080c16;
+  --code-bg:         #040608;
+  --code-border:     rgba(0, 212, 255, 0.08);
+
+  --add-bg:          #0b0f1a;
+  --add-border:      rgba(0, 212, 255, 0.08);
+  --add-hover:       rgba(0, 212, 255, 0.06);
+
+  --scrollbar:       rgba(0, 212, 255, 0.12);
+
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  18px;
+}
+
+body.light {
+  --bg:              #f3efe8;
+  --bg-secondary:    #ece7df;
+  --card:            #faf7f2;
+  --card-hover:      #f4f0e8;
+  --card-elevated:   #eee9e0;
+
+  --text:            #1c2030;
+  --text-secondary:  #4a5570;
+  --muted:           #8898b0;
+
+  --primary:         #0077aa;
+  --primary-hover:   #005f8c;
+  --primary-dim:     #004466;
+  --primary-subtle:  rgba(0, 119, 170, 0.08);
+  --primary-glow:    rgba(0, 119, 170, 0.18);
+  --primary-glow-lg: rgba(0, 119, 170, 0.28);
+
+  --accent:          #5a40cc;
+  --accent-subtle:   rgba(90, 64, 204, 0.09);
+
+  --green:           #007a50;
+  --green-subtle:    rgba(0, 122, 80, 0.1);
+  --amber:           #cc7700;
+  --amber-subtle:    rgba(204, 119, 0, 0.1);
+  --red:             #cc2244;
+  --red-subtle:      rgba(204, 34, 68, 0.1);
+
+  --border:          rgba(0, 0, 0, 0.07);
+  --border-hover:    rgba(0, 119, 170, 0.22);
+  --border-card:     rgba(0, 0, 0, 0.07);
+
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-md:       0 4px 18px rgba(0, 0, 0, 0.09);
+  --shadow-lg:       0 10px 40px rgba(0, 0, 0, 0.13);
+  --shadow-primary:  0 4px 18px rgba(0, 119, 170, 0.2);
+  --shadow-cyan-lg:  0 8px 32px rgba(0, 119, 170, 0.24);
+
+  --sidebar-bg:      #ece7df;
+  --sidebar-border:  rgba(0, 0, 0, 0.07);
+  --sidebar-text:    #8898b0;
+  --sidebar-hover:   rgba(0, 119, 170, 0.07);
+
+  --input-bg:        #faf7f2;
+  --code-bg:         #111520;
+  --code-border:     rgba(0, 0, 0, 0.2);
+
+  --add-bg:          #ece7df;
+  --add-border:      rgba(0, 0, 0, 0.08);
+  --add-hover:       rgba(0, 119, 170, 0.07);
+
+  --scrollbar:       rgba(0, 0, 0, 0.13);
+}
+
+/* =====================================================
+   RESET & BASE
+===================================================== */
+
+html { scroll-behavior: smooth; }
+
+body * {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button, a, input, select, textarea {
+  transition-duration: 0.15s !important;
+}
+
+body.no-transition, body.no-transition * { transition: none !important; }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  background-image: radial-gradient(rgba(0, 212, 255, 0.032) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+body.light {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-glow); }
+
+/* Code block base (Prism renders inside these) */
+pre {
+  background: var(--code-bg) !important;
+  border: 1px solid var(--code-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 1.1rem 1.25rem !important;
+  overflow-x: auto;
+  font-size: 0.82rem !important;
+  line-height: 1.72 !important;
+  margin-top: 1rem;
+  position: relative;
+}
+
+code { font-family: 'JetBrains Mono', monospace !important; }
+
+input, select, textarea {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px var(--primary-subtle), inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23334455' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  padding-right: 2.4rem;
+  cursor: pointer;
+}
+
+body.light select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238898b0' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Keyboard-navigation focus ring. The original relied on plain browser
+   default outlines; this keeps that same safety net but makes it consistent
+   with the theme instead of a generic blue/black system outline. Only shows
+   for keyboard focus (:focus-visible), not on mouse clicks. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

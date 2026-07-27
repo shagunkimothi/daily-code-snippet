@@ -1,5 +1,7 @@
+import json
 import os
 import random
+import re
 import traceback
 import time
 from collections import defaultdict
@@ -21,7 +23,7 @@ from starlette.responses import RedirectResponse
 from app.auth import ALGORITHM, SECRET_KEY, create_access_token, oauth
 from app.database import engine, get_db
 from app.dependencies import get_current_user
-from app.models import Activity, Favorite, Snippet, Tag, User, snippet_tags
+from app.models import Activity, CATEGORIES, DIFFICULTY_LEVELS, Favorite, Snippet, Tag, User, snippet_tags
 from app.schemas import (
     HeatmapEntry, HeatmapResponse,
     SnippetResponse, SnippetSearchResponse,
@@ -47,7 +49,68 @@ class TopicRequest(BaseModel):
     topic: str
     language: str = "JavaScript"
 
+
+class VisibilityUpdate(BaseModel):
+    is_public: bool
+
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+# ==============================================================
+# AI GENERATION — vocabulary normalization
+#
+# Gemini doesn't reliably stick to the app's own enums (it tends to return
+# "Easy"/"Medium"/"Hard" and free-text categories like "String
+# Manipulation"), so the raw model output is normalized against the same
+# DIFFICULTY_LEVELS / CATEGORIES the rest of the app already uses (see
+# app/models.py) before it's returned to the client. Unknown/unparseable
+# values fall back to the same defaults SnippetCreate itself uses.
+# ==============================================================
+
+_DIFFICULTY_ALIASES = {
+    "easy": "beginner", "beginner": "beginner", "novice": "beginner",
+    "medium": "intermediate", "intermediate": "intermediate", "moderate": "intermediate",
+    "hard": "advanced", "advanced": "advanced", "difficult": "advanced", "expert": "advanced",
+}
+
+_CATEGORY_ALIASES = {
+    "algorithm": "algorithm", "algorithms": "algorithm",
+    "data structure": "data-structure", "data-structure": "data-structure", "data structures": "data-structure",
+    "utility": "utility", "utilities": "utility", "helper": "utility", "helper function": "utility",
+    "pattern": "pattern", "design pattern": "pattern", "design patterns": "pattern",
+    "snippet": "snippet",
+}
+
+
+def normalize_difficulty(value) -> str:
+    key = str(value or "").strip().lower()
+    if key in DIFFICULTY_LEVELS:
+        return key
+    return _DIFFICULTY_ALIASES.get(key, "beginner")
+
+
+def normalize_category(value) -> str:
+    key = str(value or "").strip().lower()
+    if key in CATEGORIES:
+        return key
+    return _CATEGORY_ALIASES.get(key, "other")
+
+
+def normalize_ai_result(raw_text: str) -> str:
+    """Best-effort: parse the JSON object out of the model's raw text, fix up
+    difficulty/category, re-serialize. Falls back to the untouched raw text
+    if it isn't parseable JSON, so this never breaks the AI feature outright."""
+    match = re.search(r"\{[\s\S]*\}", raw_text or "")
+    if not match:
+        return raw_text
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return raw_text
+    if "difficulty" in parsed:
+        parsed["difficulty"] = normalize_difficulty(parsed.get("difficulty"))
+    if "category" in parsed:
+        parsed["category"] = normalize_category(parsed.get("category"))
+    return json.dumps(parsed)
 
 if os.getenv("RENDER", "false").lower() != "true":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -228,6 +291,19 @@ def get_random_snippet(db: Session = Depends(get_db)):
 def my_snippets(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(Snippet).filter(Snippet.owner_id == user.id).order_by(Snippet.id.desc()).all()
 
+@app.get("/snippets/public", response_model=list[SnippetResponse])
+def get_public_snippets(db: Session = Depends(get_db)):
+    """Guest-facing snippet list — public snippets only, no auth required."""
+    return db.query(Snippet).filter(Snippet.is_public == True).order_by(Snippet.id.desc()).all()
+
+@app.get("/snippets/private", response_model=list[SnippetResponse])
+def get_private_snippets(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Authenticated snippet list — every public snippet plus the caller's
+    own private ones, same visibility rule /snippets/search already uses."""
+    return db.query(Snippet).filter(
+        (Snippet.is_public == True) | (Snippet.owner_id == user.id)
+    ).order_by(Snippet.id.desc()).all()
+
 @app.post("/snippets/add")
 async def add_snippet(snippet: SnippetCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
     # Handle tags — convert string names to Tag objects
@@ -255,6 +331,40 @@ async def add_snippet(snippet: SnippetCreate, db: Session = Depends(get_db), use
     db.refresh(new_snippet)
     return {"message": "Snippet added successfully", "id": new_snippet.id}
 
+@app.patch("/snippets/{snippet_id}/visibility")
+def update_snippet_visibility(
+    snippet_id: int,
+    payload: VisibilityUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    snippet = db.query(Snippet).filter(Snippet.id == snippet_id).first()
+    if not snippet:
+        raise HTTPException(404, "Snippet not found")
+    if snippet.owner_id != user.id:
+        raise HTTPException(403, "Not authorized to modify this snippet")
+
+    snippet.is_public = payload.is_public
+    db.commit()
+    db.refresh(snippet)
+    return {"status": "updated", "is_public": snippet.is_public}
+
+@app.delete("/snippets/{snippet_id}")
+def delete_snippet(snippet_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    snippet = db.query(Snippet).filter(Snippet.id == snippet_id).first()
+    if not snippet:
+        raise HTTPException(404, "Snippet not found")
+    if snippet.owner_id != user.id:
+        raise HTTPException(403, "Not authorized to delete this snippet")
+
+    # Favorite rows have no ON DELETE CASCADE at the DB level (unlike
+    # snippet_tags, which does) — clean them up explicitly first so this
+    # doesn't hit a foreign-key violation on Postgres for favorited snippets.
+    db.query(Favorite).filter(Favorite.snippet_id == snippet_id).delete()
+    db.delete(snippet)
+    db.commit()
+    return {"status": "deleted"}
+
 @app.post("/snippets/generate-ai")
 async def generate_ai_snippet(request: TopicRequest, user=Depends(get_current_user)):
     prompt = f"""
@@ -263,6 +373,8 @@ async def generate_ai_snippet(request: TopicRequest, user=Depends(get_current_us
     Return ONLY a JSON object with these keys:
     "title", "language", "code", "explanation", "difficulty", "category", "tags".
     Set "language" to "{request.language}".
+    "difficulty" MUST be exactly one of: {", ".join(DIFFICULTY_LEVELS)}.
+    "category" MUST be exactly one of: {", ".join(CATEGORIES)}.
     Do not use markdown code blocks. Return raw JSON only.
     """
 
@@ -282,7 +394,7 @@ async def generate_ai_snippet(request: TopicRequest, user=Depends(get_current_us
             )
             if response and response.text:
                 print(f"✅ Used model: {model_name}")
-                return {"result": response.text}
+                return {"result": normalize_ai_result(response.text)}
         except Exception as e:
             print(f"❌ Model {model_name} failed: {e}")
             last_error = e

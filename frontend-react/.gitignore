@@ -1,0 +1,18 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Personal env overrides — .env.development and .env.production ARE committed
+# (no secrets, just the public API base URL); only local overrides are ignored.
+.env.local
+.env.*.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
