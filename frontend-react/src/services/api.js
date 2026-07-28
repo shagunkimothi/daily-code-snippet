@@ -1,4 +1,5 @@
 import axios from "axios";
+import { clearToken, getToken } from "../utils/tokenStorage";
 
 // Vite injects this from .env.development / .env.production (or a
 // .env.local override) at build time — no hostname sniffing, no hardcoded
@@ -21,7 +22,9 @@ const api = axios.create({
 // `Authorization: Bearer ${token}` header the vanilla JS added manually
 // to each authenticated fetch() call.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  // "Remember Me" (off) means the token lives in sessionStorage instead of
+  // localStorage — getToken() checks both so this keeps working either way.
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -50,9 +53,9 @@ api.interceptors.response.use(
     // begin with and must not clear an active guest session or bounce the
     // user off the login page they're already on.
     if (status === 401 && hadAuthHeader) {
-      localStorage.removeItem("token");
+      clearToken();
       localStorage.removeItem("isGuest");
-      if (window.location.pathname !== "/auth.html") {
+      if (window.location.pathname !== "/login" && window.location.pathname !== "/signup") {
         // This module lives outside the component tree and has no access to
         // useNavigate(), so a plain window.location.href assignment would force
         // a full page reload instead of an in-SPA route change. Dispatching an

@@ -1,11 +1,22 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Sparkles, Upload } from "lucide-react";
+import { Tabs, TabPanel } from "../components/ui/Tabs";
+import AppShell from "../components/Layout/AppShell";
 import Header from "../components/Header/Header";
 import Toast from "../components/Toast/Toast";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import Textarea from "../components/ui/Textarea";
+import Select from "../components/ui/Select";
+import Switch from "../components/ui/Switch";
+import TagChip from "../components/TagChip/TagChip";
+import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import * as snippetService from "../services/snippetService";
 
 const LANGUAGES = ["JavaScript", "Python", "Java", "C++", "HTML", "CSS", "TypeScript", "Go", "Rust"];
+const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({ value: l, label: l }));
 const AI_LANGUAGES = [
   ["Python", "🐍 Python"],
   ["JavaScript", "🌐 JavaScript"],
@@ -26,15 +37,17 @@ const AI_LANGUAGES = [
   ["R", "📊 R"],
   ["Dart", "🎯 Dart"],
 ];
+const AI_LANGUAGE_OPTIONS = AI_LANGUAGES.map(([value, label]) => ({ value, label }));
 const DIFFICULTIES = [
   ["beginner", "🟢 Beginner"],
   ["intermediate", "🟡 Intermediate"],
   ["advanced", "🔴 Advanced"],
 ];
+const DIFFICULTY_OPTIONS = DIFFICULTIES.map(([value, label]) => ({ value, label }));
 const CATEGORIES = ["snippet", "algorithm", "data-structure", "utility", "pattern", "other"];
+const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({ value: c, label: c }));
 
-const inputClass =
-  "w-full rounded-md border border-border bg-card px-4 py-3 text-sm text-text placeholder:text-muted focus:border-primary focus:outline-none";
+const TAB_LABELS = ["Manual Entry", "AI Generate", "Bulk Import"];
 
 function matchOption(options, value, fallback) {
   const hit = options.find((o) => o.toLowerCase() === (value || "").toLowerCase());
@@ -44,10 +57,13 @@ function matchOption(options, value, fallback) {
 // 1:1 port of addnewsnippet.html + addnewsnippets.js: three tabs (Manual /
 // AI Generate / Bulk Import) sharing the same underlying manual-form state,
 // since AI Generate fills the manual fields and switches tabs, exactly
-// like the original.
+// like the original. Tabs are now Headless UI's TabGroup (index-based)
+// instead of a hand-rolled role="tablist" — same three panels, real
+// keyboard nav (arrow keys) for free.
 export default function AddSnippet() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState("manual");
+  const { token } = useAuth();
+  const [tabIndex, setTabIndex] = useState(0);
 
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState("JavaScript");
@@ -65,10 +81,11 @@ export default function AddSnippet() {
   const [aiBusy, setAiBusy] = useState(false);
 
   const [bulkText, setBulkText] = useState("");
+  const [bulkFileName, setBulkFileName] = useState("");
   const fileInputRef = useRef(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  const { toast, showToast } = useToast();
+  const { toast, showToast, dismissToast } = useToast();
 
   function addTag() {
     const val = tagInput.trim().toLowerCase().replace(/,/g, "");
@@ -91,7 +108,6 @@ export default function AddSnippet() {
 
   async function handleManualSubmit(e) {
     e.preventDefault();
-    const token = localStorage.getItem("token");
     if (!token) return showToast("Please log in.", "error");
 
     const payload = {
@@ -113,16 +129,15 @@ export default function AddSnippet() {
     try {
       await snippetService.addSnippet(payload);
       localStorage.setItem("snippetsChanged", "true");
-      showToast("✅ Snippet saved!");
+      showToast("Snippet saved!");
       setTimeout(() => navigate("/dashboard"), 1500);
     } catch (err) {
-      showToast(`❌ ${err.message}`, "error");
+      showToast(err.message || "Could not save snippet.", "error");
       setSubmitting(false);
     }
   }
 
   async function handleGenerateAi() {
-    const token = localStorage.getItem("token");
     if (!token) return showToast("Please log in.", "error");
     if (!aiTopic.trim()) return showToast("Please enter a topic.", "error");
 
@@ -144,17 +159,16 @@ export default function AddSnippet() {
         setTags([...new Set(parsed.tags.slice(0, 6).map((t) => t.toLowerCase().trim()))]);
       }
 
-      setTab("manual");
-      showToast(`✨ ${aiLanguage} snippet ready!`);
+      setTabIndex(0);
+      showToast(`${aiLanguage} snippet ready!`);
     } catch {
-      showToast("❌ AI generation failed.", "error");
+      showToast("AI generation failed.", "error");
     } finally {
       setAiBusy(false);
     }
   }
 
   async function handleImport() {
-    const token = localStorage.getItem("token");
     if (!token) return showToast("Please log in.", "error");
 
     let snippets = [];
@@ -168,13 +182,13 @@ export default function AddSnippet() {
         return showToast("Provide a file or paste JSON.", "error");
       }
     } catch {
-      return showToast("❌ Invalid JSON format.", "error");
+      return showToast("Invalid JSON format.", "error");
     }
 
-    if (!Array.isArray(snippets)) return showToast("❌ JSON must be an array.", "error");
+    if (!Array.isArray(snippets)) return showToast("JSON must be an array.", "error");
 
     setBulkBusy(true);
-    showToast("🚀 Importing...", "info");
+    showToast("Importing...", "info");
 
     const results = await Promise.all(
       snippets.map((s) =>
@@ -196,182 +210,121 @@ export default function AddSnippet() {
 
     const saved = results.filter(Boolean).length;
     localStorage.setItem("snippetsChanged", "true");
-    showToast(`✅ ${saved} saved, ${results.length - saved} failed.`);
+    showToast(`${saved} saved, ${results.length - saved} failed.`);
     setBulkBusy(false);
     if (saved > 0) setTimeout(() => navigate("/dashboard"), 2000);
   }
 
   return (
-    <div className="mx-auto max-w-[720px] px-6 py-8">
+    <AppShell title="Add Snippet" maxWidth="720px">
       <Header title="Add to Library" />
 
-      <div role="tablist" aria-label="Add snippet method" className="mb-8 flex gap-2 border-b border-border">
-        {[
-          ["manual", "Manual Entry"],
-          ["ai-magic", "AI Generate"],
-          ["bulk", "Bulk Import"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-[18px] py-2.5 text-sm font-medium ${
-              tab === key ? "border-primary text-primary" : "border-transparent text-muted hover:text-text"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "manual" && (
-        <form onSubmit={handleManualSubmit} className="flex flex-col gap-3.5">
-          <input
-            type="text"
-            placeholder="Snippet Title"
-            required
-            maxLength={100}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className={inputClass}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <select value={language} onChange={(e) => setLanguage(e.target.value)} className={inputClass}>
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
-            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className={inputClass}>
-              {DIFFICULTIES.map(([v, label]) => (
-                <option key={v} value={v}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          <div>
-            <input
+      <Tabs tabs={TAB_LABELS} selectedIndex={tabIndex} onChange={setTabIndex}>
+        <TabPanel>
+          <form onSubmit={handleManualSubmit} className="flex flex-col gap-3.5">
+            <Input
               type="text"
-              placeholder="Add tags (press Enter or comma)"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={handleTagKeyDown}
-              className={inputClass}
+              placeholder="Snippet Title"
+              required
+              maxLength={100}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
-            <div className="mt-1.5 flex min-h-[20px] flex-wrap gap-1.5">
-              {tags.map((tag, i) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => removeTag(i)}
-                  aria-label={`Remove tag ${tag}`}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-primary-glow bg-primary-subtle px-2.5 py-[3px] text-xs font-semibold text-primary hover:opacity-70"
-                >
-                  {tag} <span aria-hidden="true">&times;</span>
-                </button>
-              ))}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={language} onChange={setLanguage} options={LANGUAGE_OPTIONS} />
+              <Select value={difficulty} onChange={setDifficulty} options={DIFFICULTY_OPTIONS} />
             </div>
-          </div>
 
-          <textarea
-            placeholder="// Paste your code here..."
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className={`${inputClass} min-h-[180px] resize-y font-mono text-[13px]`}
-          />
-          <textarea
-            placeholder="Explanation (optional)"
-            value={explanation}
-            onChange={(e) => setExplanation(e.target.value)}
-            className={`${inputClass} min-h-[80px] resize-y`}
-          />
+            <Select value={category} onChange={setCategory} options={CATEGORY_OPTIONS} />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="h-[18px] w-[18px] accent-primary"
+            <div>
+              <Input
+                type="text"
+                placeholder="Add tags (press Enter or comma)"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
               />
-              Make Public
-            </label>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-md bg-gradient-to-br from-primary to-primary-dim px-7 py-3 text-[15px] font-semibold text-white shadow-primary hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? "Saving..." : "Create Snippet"}
-            </button>
+              <div className="mt-1.5 flex min-h-[20px] flex-wrap gap-1.5">
+                {tags.map((tag, i) => (
+                  <TagChip key={tag} label={tag} variant="removable" onRemove={() => removeTag(i)} />
+                ))}
+              </div>
+            </div>
+
+            <Textarea
+              placeholder="// Paste your code here..."
+              required
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="min-h-[180px] resize-y font-mono text-[13px]"
+            />
+            <Textarea
+              placeholder="Explanation (optional)"
+              value={explanation}
+              onChange={(e) => setExplanation(e.target.value)}
+              className="min-h-[80px] resize-y"
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Switch checked={isPublic} onChange={setIsPublic} label="Make Public" />
+              <Button type="submit" variant="primary" size="lg" loading={submitting}>
+                {submitting ? "Saving..." : "Create Snippet"}
+              </Button>
+            </div>
+          </form>
+        </TabPanel>
+
+        <TabPanel>
+          <div className="flex flex-col gap-3.5">
+            <Input
+              type="text"
+              placeholder="e.g. Binary Search, Debounce function, Merge Sort..."
+              value={aiTopic}
+              onChange={(e) => setAiTopic(e.target.value)}
+            />
+            <p className="-mt-1.5 text-xs text-muted">Describe what you want — AI will generate the full snippet for you.</p>
+
+            <Select value={aiLanguage} onChange={setAiLanguage} options={AI_LANGUAGE_OPTIONS} />
+
+            <Button variant="primary" size="lg" onClick={handleGenerateAi} loading={aiBusy} className="gap-2">
+              <Sparkles size={16} aria-hidden="true" />
+              {aiBusy ? "Generating..." : "Generate Snippet"}
+            </Button>
           </div>
-        </form>
-      )}
+        </TabPanel>
 
-      {tab === "ai-magic" && (
-        <div className="flex flex-col gap-3.5">
-          <input
-            type="text"
-            placeholder="e.g. Binary Search, Debounce function, Merge Sort..."
-            value={aiTopic}
-            onChange={(e) => setAiTopic(e.target.value)}
-            className={inputClass}
-          />
-          <p className="-mt-1.5 text-xs text-muted">
-            💡 Describe what you want — AI will generate the full snippet for you.
-          </p>
+        <TabPanel>
+          <div className="flex flex-col gap-3.5">
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border-card bg-input-bg px-4 py-6 text-center hover:border-primary">
+              <Upload size={20} className="text-muted" aria-hidden="true" />
+              <span className="text-sm text-text-secondary">
+                {bulkFileName || "Choose a JSON file, or paste JSON below"}
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={(e) => setBulkFileName(e.target.files?.[0]?.name || "")}
+              />
+            </label>
+            <Textarea
+              placeholder='[{"title":"...","language":"...","code":"...","tags":["loop","array"]}]'
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              className="min-h-[160px] resize-y font-mono text-[13px]"
+            />
+            <Button variant="primary" size="lg" onClick={handleImport} loading={bulkBusy} className="gap-2">
+              <Upload size={16} aria-hidden="true" />
+              Import Snippets
+            </Button>
+          </div>
+        </TabPanel>
+      </Tabs>
 
-          <select value={aiLanguage} onChange={(e) => setAiLanguage(e.target.value)} className={inputClass}>
-            {AI_LANGUAGES.map(([v, label]) => (
-              <option key={v} value={v}>
-                {label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleGenerateAi}
-            disabled={aiBusy}
-            className="rounded-md bg-gradient-to-br from-primary to-primary-dim px-7 py-3 text-[15px] font-semibold text-white shadow-primary hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {aiBusy ? "✨ Generating..." : "✨ Generate Snippet"}
-          </button>
-        </div>
-      )}
-
-      {tab === "bulk" && (
-        <div className="flex flex-col gap-3.5">
-          <input ref={fileInputRef} type="file" accept=".json" className="text-sm text-text" />
-          <textarea
-            placeholder='[{"title":"...","language":"...","code":"...","tags":["loop","array"]}]'
-            value={bulkText}
-            onChange={(e) => setBulkText(e.target.value)}
-            className={`${inputClass} min-h-[160px] resize-y font-mono text-[13px]`}
-          />
-          <button
-            onClick={handleImport}
-            disabled={bulkBusy}
-            className="rounded-md bg-gradient-to-br from-primary to-primary-dim px-7 py-3 text-[15px] font-semibold text-white shadow-primary hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            📥 Import Snippets
-          </button>
-        </div>
-      )}
-
-      <Toast toast={toast} />
-    </div>
+      <Toast toast={toast} onDismiss={dismissToast} />
+    </AppShell>
   );
 }

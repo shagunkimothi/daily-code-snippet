@@ -1,17 +1,26 @@
 import { useCallback, useRef, useState } from "react";
 
-// Consolidates the toast logic that MySnippets.jsx and addnewsnippets.js
-// each hand-rolled independently in the original (same 3s-timeout pattern,
-// slightly different call signatures). One hook, one <Toast/> component.
+let idCounter = 0;
+
+// Return shape is intentionally unchanged from before ({ toast, showToast })
+// so MySnippets.jsx/AddSnippet.jsx (not yet migrated to the redesign) keep
+// working exactly as-is. `dismissToast` is additive — only new call sites
+// that want a manual close button need to use it.
 export function useToast() {
-  const [toast, setToast] = useState(null); // { message, variant }
+  const [toast, setToast] = useState(null); // { id, message, variant }
   const timerRef = useRef(null);
 
   const showToast = useCallback((message, variant = "success") => {
-    setToast({ message, variant });
+    const id = ++idCounter;
+    setToast({ id, message, variant });
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setToast(null), 3000);
   }, []);
 
-  return { toast, showToast };
+  const dismissToast = useCallback(() => {
+    clearTimeout(timerRef.current);
+    setToast(null);
+  }, []);
+
+  return { toast, showToast, dismissToast };
 }

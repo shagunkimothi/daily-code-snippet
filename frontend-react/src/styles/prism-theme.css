@@ -1,0 +1,83 @@
+/* Theme-aware replacement for the vendor `prismjs/themes/prism-tomorrow.css`
+   import that used to fix every code block to one hardcoded dark-cyan
+   palette regardless of the active app theme. Maps Prism's standard token
+   classes to this app's --syntax-* custom properties (defined per theme in
+   index.css) so code blocks re-theme along with everything else.
+
+   Code blocks intentionally stay on a near-black --code-bg in every theme
+   (including the light ones) — the universal convention for syntax-
+   highlighted code, and what this app already did before this file existed. */
+
+code[class*="language-"],
+pre[class*="language-"] {
+  color: var(--syntax-operator);
+  background: none;
+  text-shadow: none;
+  tab-size: 2;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: var(--syntax-punctuation);
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: var(--syntax-tag);
+}
+
+.token.number {
+  color: var(--syntax-number);
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: var(--syntax-string);
+}
+
+.token.operator,
+.token.entity,
+.token.url {
+  color: var(--syntax-operator);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: var(--syntax-keyword);
+}
+
+.token.function,
+.token.class-name {
+  color: var(--syntax-function);
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: var(--syntax-variable);
+}
+
+.token.important,
+.token.bold {
+  font-weight: 700;
+}
+
+.token.italic {
+  font-style: italic;
+}

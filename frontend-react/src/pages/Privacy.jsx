@@ -1,17 +1,16 @@
-import { Link } from "react-router-dom";
+import Button from "../components/ui/Button";
 
-// 1:1 content port of privacy.html — same copy, same section order.
+// 1:1 content port of privacy.html — same copy, same section order. Legal
+// copy stays plain and practical here on purpose — this isn't the place
+// for product personality.
 export default function Privacy() {
   return (
     <div className="mx-auto max-w-[720px] px-6 py-12 text-text">
-      <Link
-        to="/"
-        className="mb-8 inline-block rounded-md border border-border bg-card px-[18px] py-2 text-sm text-text hover:border-primary hover:text-primary"
-      >
+      <Button as="link" to="/" variant="secondary" className="mb-8">
         ← Back to App
-      </Link>
+      </Button>
 
-      <h1 className="mb-2 text-[28px] font-bold">🔐 Privacy Policy</h1>
+      <h1 className="mb-2 text-[28px] font-bold">Privacy Policy</h1>
       <p className="mb-8 text-xs text-muted">Last updated: March 2026</p>
 
       <p className="mb-4 text-sm leading-[1.8] text-muted">

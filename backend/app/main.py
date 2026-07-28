@@ -6,15 +6,16 @@ import traceback
 import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from google import genai
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func, text
+from sqlalchemy import func, inspect, text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.middleware.sessions import SessionMiddleware
@@ -23,15 +24,28 @@ from starlette.responses import RedirectResponse
 from app.auth import ALGORITHM, SECRET_KEY, create_access_token, oauth
 from app.database import SessionLocal, engine, get_db
 from app.dependencies import get_current_user
-from app.models import Activity, CATEGORIES, DailySnippet, DIFFICULTY_LEVELS, Favorite, Snippet, Tag, User, snippet_tags
+from app.email import send_email
+from app.email_templates import reminder_email_html, welcome_email_html
+from app.models import (
+    Activity, CATEGORIES, DailySnippet, DIFFICULTY_LEVELS, Favorite,
+    ReminderSettings, Snippet, Tag, Topic, User, snippet_tags,
+)
 from app.schemas import (
+    AnalyticsResponse, CategoryCount,
     DailySnippetResponse,
     HeatmapEntry, HeatmapResponse,
+    MonthlyActivityPoint,
+    PasswordChangeRequest,
+    RecommendationsResponse, RecommendedSnippet,
+    REMINDER_FREQUENCIES, ReminderSettingsResponse, ReminderSettingsUpdate,
     SnippetResponse, SnippetSearchResponse,
-    TagResponse, UserCreate, UserResponse,
+    TagResponse, TopicResponse, TopicsUpdate,
+    UserCreate, UserMeResponse, UserResponse,
+    WeeklyActivityPoint,
 )
 from app.security import hash_password, verify_password
 from app.seed_data import seed_if_empty
+from app.topics_seed import seed_topics_if_empty
 from app import models
 
 load_dotenv(override=False)
@@ -117,20 +131,36 @@ def normalize_ai_result(raw_text: str) -> str:
 if os.getenv("RENDER", "false").lower() != "true":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
+def _ensure_user_columns(conn):
+    """create_all() only creates missing *tables* — it never ALTERs an
+    existing one, so a `users` table that predates the learning-platform
+    columns (created_at, welcome_email_sent_at, onboarding_completed) needs
+    them backfilled explicitly. Checked via inspection rather than
+    `ADD COLUMN IF NOT EXISTS` because SQLite doesn't support that syntax
+    (Postgres does), so this stays portable across both."""
+    existing = {c["name"] for c in inspect(conn).get_columns("users")}
+    if "created_at" not in existing:
+        conn.execute(text("ALTER TABLE users ADD COLUMN created_at TIMESTAMP"))
+    if "welcome_email_sent_at" not in existing:
+        conn.execute(text("ALTER TABLE users ADD COLUMN welcome_email_sent_at TIMESTAMP"))
+    if "onboarding_completed" not in existing:
+        conn.execute(text("ALTER TABLE users ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE"))
+
 def connect_with_retry(retries=5, delay=3):
     for i in range(retries):
         try:
             models.Base.metadata.create_all(bind=engine)
-            # create_all() only creates missing tables — it won't add this
-            # index to the `snippets` table on a database that already had
-            # the table before this index existed (i.e. production, which
-            # was seeded before the rotation engine shipped). CREATE INDEX
-            # IF NOT EXISTS is supported by both Postgres and SQLite, so this
-            # backfills it there while staying a no-op everywhere else.
             with engine.begin() as conn:
+                # create_all() only creates missing tables — it won't add this
+                # index to the `snippets` table on a database that already had
+                # the table before this index existed (i.e. production, which
+                # was seeded before the rotation engine shipped). CREATE INDEX
+                # IF NOT EXISTS is supported by both Postgres and SQLite, so this
+                # backfills it there while staying a no-op everywhere else.
                 conn.execute(text(
                     "CREATE INDEX IF NOT EXISTS ix_snippets_public_id ON snippets (is_public, id)"
                 ))
+                _ensure_user_columns(conn)
             print("✅ DB connected successfully")
             return
         except OperationalError:
@@ -148,6 +178,9 @@ with SessionLocal() as _seed_db:
     _seeded_count = seed_if_empty(_seed_db)
     if _seeded_count:
         print(f"🌱 Seeded {_seeded_count} starter snippets (database was empty)")
+    _seeded_topics = seed_topics_if_empty(_seed_db)
+    if _seeded_topics:
+        print(f"🌱 Seeded {_seeded_topics} learning topics (database was empty)")
 
 app = FastAPI(title="DailyCode API")
 
@@ -173,12 +206,32 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "de
 # AUTH
 # ==============================================================
 
+def _send_welcome_email_once(user: User, db: Session, background_tasks: BackgroundTasks):
+    """Guards the "send exactly once" requirement: marks
+    welcome_email_sent_at immediately — before the background task even
+    runs — so a retried request or (for Google) a returning existing user
+    hitting the callback again can never queue a second send. Marked
+    regardless of whether the send itself later succeeds: retrying a
+    failed send would need a queue/worker, which is more machinery than a
+    single welcome email is worth — the tradeoff is a rare missed email
+    over a guaranteed no-duplicate.
+    """
+    if user.welcome_email_sent_at:
+        return
+    user.welcome_email_sent_at = datetime.utcnow()
+    db.commit()
+    frontend_url = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
+    background_tasks.add_task(
+        send_email, user.email, "Welcome to DailyCode", welcome_email_html(frontend_url)
+    )
+
 @app.post("/auth/signup", response_model=UserResponse, status_code=201)
-def signup(user: UserCreate, db: Session = Depends(get_db)):
+def signup(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(400, "Email already registered")
     new_user = User(email=user.email, hashed_password=hash_password(user.password))
     db.add(new_user); db.commit(); db.refresh(new_user)
+    _send_welcome_email_once(new_user, db, background_tasks)
     return new_user
 
 @app.post("/auth/login")
@@ -206,16 +259,102 @@ async def google_login(request: Request):
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/google/callback")
-async def google_callback(request: Request, db: Session = Depends(get_db)):
+async def google_callback(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
     info  = token.get("userinfo")
     user  = db.query(User).filter(User.email == info["email"]).first()
     if not user:
         user = User(email=info["email"], google_id=info["sub"])
         db.add(user); db.commit(); db.refresh(user)
+    _send_welcome_email_once(user, db, background_tasks)
     jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
     frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
-    return RedirectResponse(f"{frontend}/auth.html?token={jwt_token}")
+    # /login (not /auth.html) — AuthContext's token-handoff effect reads the
+    # ?token= query param on whatever route it lands on, so this only needs
+    # to be a route that actually exists in the SPA's router.
+    return RedirectResponse(f"{frontend}/login?token={jwt_token}")
+
+# ==============================================================
+# USER PROFILE / PREFERENCES
+# ==============================================================
+# Backs /users/me (replaces Profile.jsx's old JWT-decode workaround), the
+# onboarding wizard (topics + reminders + a completion flag), and the
+# Settings page's Account/Security section.
+
+@app.get("/users/me", response_model=UserMeResponse)
+def get_me(user: User = Depends(get_current_user)):
+    rs = user.reminder_settings
+    return UserMeResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+        onboarding_completed=user.onboarding_completed,
+        has_password=bool(user.hashed_password),
+        topics=user.topics,
+        reminder_settings=ReminderSettingsResponse(
+            frequency=rs.frequency if rs else "none",
+            timezone=rs.timezone if rs else "UTC",
+        ),
+    )
+
+@app.get("/topics", response_model=list[TopicResponse])
+def list_topics(db: Session = Depends(get_db)):
+    return db.query(Topic).order_by(Topic.id).all()
+
+@app.post("/users/me/topics")
+def update_my_topics(payload: TopicsUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Set-replace, not append — repeating the same request (e.g. a retry)
+    # can't accumulate duplicate selections or drift from what's on screen.
+    topics = db.query(Topic).filter(Topic.id.in_(payload.topic_ids)).all()
+    user.topics = topics
+    db.commit()
+    return {"status": "updated", "topic_ids": [t.id for t in topics]}
+
+@app.get("/users/me/reminders", response_model=ReminderSettingsResponse)
+def get_my_reminders(user: User = Depends(get_current_user)):
+    rs = user.reminder_settings
+    if not rs:
+        return ReminderSettingsResponse(frequency="none", timezone="UTC")
+    return ReminderSettingsResponse(frequency=rs.frequency, timezone=rs.timezone)
+
+@app.post("/users/me/reminders", response_model=ReminderSettingsResponse)
+def update_my_reminders(
+    payload: ReminderSettingsUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.frequency not in REMINDER_FREQUENCIES:
+        raise HTTPException(422, f"frequency must be one of {REMINDER_FREQUENCIES}")
+    rs = user.reminder_settings
+    if not rs:
+        rs = ReminderSettings(user_id=user.id)
+        db.add(rs)
+    rs.frequency = payload.frequency
+    rs.timezone = payload.timezone
+    db.commit()
+    return ReminderSettingsResponse(frequency=rs.frequency, timezone=rs.timezone)
+
+@app.post("/users/me/onboarding/complete")
+def complete_onboarding(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    user.onboarding_completed = True
+    db.commit()
+    return {"status": "completed"}
+
+@app.post("/users/me/password")
+def change_password(
+    payload: PasswordChangeRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not user.hashed_password:
+        raise HTTPException(400, "This account signs in with Google and has no password to change.")
+    if not verify_password(payload.current_password, user.hashed_password):
+        raise HTTPException(401, "Current password is incorrect")
+    if len(payload.new_password) < 6:
+        raise HTTPException(422, "New password must be at least 6 characters")
+    user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+    return {"status": "password updated"}
 
 # ==============================================================
 # TAGS
@@ -241,6 +380,21 @@ def create_tag(payload: dict = Body(...), user: User = Depends(get_current_user)
 # SNIPPETS
 # ==============================================================
 
+def _optional_current_user_id(request: Request) -> int | None:
+    """Best-effort auth check for endpoints that behave differently for a
+    logged-in user but must still work for guests (search, daily-snippet
+    view logging) — returns None instead of raising on a missing/invalid/
+    expired token, unlike get_current_user()'s hard 401."""
+    from jose import jwt, JWTError
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    try:
+        payload = jwt.decode(auth_header[7:], SECRET_KEY, algorithms=[ALGORITHM])
+        return int(payload.get("sub", 0)) or None
+    except JWTError:
+        return None
+
 @app.get("/snippets/search", response_model=SnippetSearchResponse)
 def search_snippets(
     request:    Request,
@@ -254,15 +408,7 @@ def search_snippets(
     per_page:   int  = Query(12, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
-    from jose import jwt, JWTError
-    current_user_id = None
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        try:
-            payload = jwt.decode(auth_header[7:], SECRET_KEY, algorithms=[ALGORITHM])
-            current_user_id = int(payload.get("sub", 0))
-        except JWTError:
-            pass
+    current_user_id = _optional_current_user_id(request)
 
     query = db.query(Snippet)
     if current_user_id:
@@ -327,8 +473,34 @@ def _compute_rotation_snippet(db, today):
     )
 
 
+def _log_daily_view_once(request: Request, db: Session, snippet_id: int):
+    """Logs one "viewed_daily_snippet" Activity per authenticated user per
+    UTC day — this is what makes /heatmap/me and /analytics/me reflect
+    actual reading instead of only favoriting. `snippet_id` is recorded so
+    analytics can later aggregate by category/language. Guests (no valid
+    token) aren't tracked; a page refresh within the same day doesn't
+    inflate the count (checked before inserting). Never lets a logging
+    failure break the actual "show me today's snippet" response."""
+    try:
+        user_id = _optional_current_user_id(request)
+        if not user_id:
+            return
+        today_start = datetime.combine(_utc_today(), datetime.min.time())
+        already_logged = db.query(Activity).filter(
+            Activity.user_id == user_id,
+            Activity.action == "viewed_daily_snippet",
+            Activity.timestamp >= today_start,
+        ).first()
+        if already_logged:
+            return
+        db.add(Activity(action="viewed_daily_snippet", user_id=user_id, snippet_id=snippet_id))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[activity] failed to log viewed_daily_snippet: {e}")
+
 @app.get("/snippets/daily", response_model=DailySnippetResponse)
-def get_daily_snippet(db: Session = Depends(get_db)):
+def get_daily_snippet(request: Request, db: Session = Depends(get_db)):
     today = _utc_today()
     day_str = today.isoformat()
     next_rotation_at = datetime.combine(today + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc)
@@ -360,6 +532,8 @@ def get_daily_snippet(db: Session = Depends(get_db)):
                 # The algorithm is a pure function of (day, public snippet
                 # set), so it computed the same snippet — nothing to do.
                 db.rollback()
+
+    _log_daily_view_once(request, db, snippet.id)
 
     # DailySnippetResponse adds fields the ORM object doesn't have, so build
     # it from the base response's dump rather than model_validate(snippet)
@@ -419,6 +593,17 @@ async def add_snippet(snippet: SnippetCreate, db: Session = Depends(get_db), use
     db.commit()
     db.refresh(new_snippet)
     return {"message": "Snippet added successfully", "id": new_snippet.id}
+
+@app.get("/snippets/{snippet_id}", response_model=SnippetResponse)
+def get_snippet(snippet_id: int, db: Session = Depends(get_db)):
+    """Public-only by design — the one current caller (clicking through a
+    recommendation) only ever references public snippet IDs to begin with,
+    so this doesn't need to handle the private/owner-only case MySnippets
+    already covers via /snippets/mine."""
+    snippet = db.query(Snippet).filter(Snippet.id == snippet_id, Snippet.is_public == True).first()
+    if not snippet:
+        raise HTTPException(404, "Snippet not found")
+    return snippet
 
 @app.patch("/snippets/{snippet_id}/visibility")
 def update_snippet_visibility(
@@ -596,6 +781,242 @@ def get_heatmap(user: User = Depends(get_current_user), db: Session = Depends(ge
     )
 
 # ==============================================================
+# ANALYTICS — richer, separate from /dashboard/me + /heatmap/me
+# (neither of which changes) so the existing Dashboard keeps working
+# untouched. Sourced entirely from `activities` (the "viewed_daily_snippet"
+# events logged in get_daily_snippet) + favorites/topics already on `user`.
+# ==============================================================
+
+def _week_start(d: date) -> date:
+    return d - timedelta(days=d.weekday())  # Monday of that ISO week
+
+@app.get("/analytics/me", response_model=AnalyticsResponse)
+def get_my_analytics(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    today = date.today()
+    window_start = today - timedelta(days=364)
+    window_start_dt = datetime.combine(window_start, datetime.min.time())
+
+    views = db.query(Activity).filter(
+        Activity.user_id == user.id,
+        Activity.action == "viewed_daily_snippet",
+        Activity.timestamp >= window_start_dt,
+    ).all()
+
+    # --- streak: identical algorithm to /heatmap/me (see that endpoint),
+    # just sourced from real-read events instead of only favorites. Shares
+    # the same "resets to 0 until today's snippet is actually opened"
+    # characteristic as the existing heatmap — reused deliberately for
+    # consistency between the two, not a new quirk introduced here.
+    counts_by_day: dict[date, int] = defaultdict(int)
+    for a in views:
+        counts_by_day[a.timestamp.date()] += 1
+
+    longest_streak = streak = 0
+    total_active_days = 0
+    d = window_start
+    while d <= today:
+        if counts_by_day.get(d, 0) > 0:
+            streak += 1
+            longest_streak = max(longest_streak, streak)
+            total_active_days += 1
+        else:
+            streak = 0
+        d += timedelta(days=1)
+
+    current_streak = 0
+    d = today
+    while counts_by_day.get(d, 0) > 0:
+        current_streak += 1
+        d -= timedelta(days=1)
+
+    # --- snippets completed + category distribution + avg reading time ---
+    viewed_snippet_ids = {a.snippet_id for a in views if a.snippet_id}
+    viewed_snippets = (
+        db.query(Snippet).filter(Snippet.id.in_(viewed_snippet_ids)).all()
+        if viewed_snippet_ids else []
+    )
+
+    category_counts: dict[str, int] = defaultdict(int)
+    for s in viewed_snippets:
+        category_counts[s.category or "other"] += 1
+    category_distribution = [
+        CategoryCount(category=c, count=n)
+        for c, n in sorted(category_counts.items(), key=lambda kv: -kv[1])
+    ]
+    favorite_category = category_distribution[0].category if category_distribution else None
+
+    average_learning_time = (
+        round(sum(s.reading_time_minutes for s in viewed_snippets) / len(viewed_snippets), 1)
+        if viewed_snippets else 0.0
+    )
+
+    # --- weekly (last 8 weeks) / monthly (last 6 months) activity ---
+    weekly_counts: dict[date, int] = defaultdict(int)
+    monthly_counts: dict[str, int] = defaultdict(int)
+    for a in views:
+        weekly_counts[_week_start(a.timestamp.date())] += 1
+        monthly_counts[a.timestamp.strftime("%Y-%m")] += 1
+
+    weekly_activity = [
+        WeeklyActivityPoint(
+            week_start=(_week_start(today) - timedelta(weeks=i)).isoformat(),
+            count=weekly_counts.get(_week_start(today) - timedelta(weeks=i), 0),
+        )
+        for i in range(7, -1, -1)
+    ]
+
+    monthly_activity = []
+    for i in range(5, -1, -1):
+        year, month = today.year, today.month - i
+        while month <= 0:
+            month += 12
+            year -= 1
+        key = f"{year}-{month:02d}"
+        monthly_activity.append(MonthlyActivityPoint(month=key, count=monthly_counts.get(key, 0)))
+
+    # --- trend: last 2 weeks vs. the 2 weeks before that ---
+    this_period = sum(weekly_counts.get(_week_start(today) - timedelta(weeks=i), 0) for i in range(0, 2))
+    prev_period = sum(weekly_counts.get(_week_start(today) - timedelta(weeks=i), 0) for i in range(2, 4))
+    if prev_period == 0:
+        learning_trend_pct = 100.0 if this_period > 0 else 0.0
+    else:
+        learning_trend_pct = round((this_period - prev_period) / prev_period * 100, 1)
+
+    # --- reading consistency: active days / days since signup ---
+    if user.created_at:
+        days_since_signup = max((today - user.created_at.date()).days, 1)
+    else:
+        # Pre-migration users have no created_at (added after they signed
+        # up) — falling back to the full 365-day window avoids a
+        # divide-by-zero and avoids overstating consistency for an unknown
+        # (possibly much longer) actual tenure.
+        days_since_signup = 365
+    reading_consistency_pct = round(min(total_active_days / days_since_signup * 100, 100.0), 1)
+
+    return AnalyticsResponse(
+        current_streak=current_streak,
+        longest_streak=longest_streak,
+        total_active_days=total_active_days,
+        snippets_completed=len(viewed_snippet_ids),
+        favorites_count=db.query(Favorite).filter(Favorite.user_id == user.id).count(),
+        weekly_activity=weekly_activity,
+        monthly_activity=monthly_activity,
+        category_distribution=category_distribution,
+        favorite_category=favorite_category,
+        reading_consistency_pct=reading_consistency_pct,
+        average_learning_time_minutes=average_learning_time,
+        preferred_topics=[t.name for t in user.topics],
+        learning_trend_pct=learning_trend_pct,
+    )
+
+# ==============================================================
+# RECOMMENDATIONS — v1 rule-based, computed on request. No new table
+# yet (see the plan / module docstring below on exactly where a
+# `recommendations` table slots in later without changing this response
+# shape, once generation moves to an LLM call).
+# ==============================================================
+
+# Loose synonym map for topics that don't literally equal a snippet's
+# language/category/tag strings (e.g. "DSA" vs the actual category values
+# "algorithm"/"data-structure"). Deliberately a small Python dict, not a
+# DB-backed mapping table — the plan defers a rigid FK-based mapping until
+# loose matching actually proves insufficient, and today's seed content
+# skews toward general algorithms/JS/Python rather than infra/framework
+# topics, so most of these aliases are aspirational until more varied
+# content exists.
+TOPIC_MATCH_ALIASES = {
+    "dsa":            {"algorithm", "data-structure"},
+    "system design":  {"pattern", "system-design", "architecture"},
+    "devops":         {"docker", "kubernetes", "utility", "ci-cd"},
+    "frontend":       {"javascript", "typescript", "css", "html", "react"},
+}
+
+def _snippet_topic_keys(snippet) -> set:
+    keys = {(snippet.language or "").lower(), (snippet.category or "").lower()}
+    keys.update(t.name.lower() for t in snippet.tags)
+    return keys
+
+def _topic_matches_snippet(topic_name: str, snippet_keys: set) -> bool:
+    needle = topic_name.lower()
+    if needle in snippet_keys:
+        return True
+    return bool(TOPIC_MATCH_ALIASES.get(needle, set()) & snippet_keys)
+
+@app.get("/recommendations/me", response_model=RecommendationsResponse)
+def get_my_recommendations(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    today = _utc_today()
+    todays_snippet = _compute_rotation_snippet(db, today)
+    todays_id = todays_snippet.id if todays_snippet else None
+
+    viewed_ids = {
+        a.snippet_id
+        for a in db.query(Activity).filter(
+            Activity.user_id == user.id, Activity.action == "viewed_daily_snippet"
+        ).all()
+        if a.snippet_id
+    }
+
+    favorited_snippets = [
+        f.snippet for f in db.query(Favorite).filter(Favorite.user_id == user.id).all() if f.snippet
+    ]
+    favorited_tag_names = {t.name.lower() for s in favorited_snippets for t in s.tags}
+    topic_names = [t.name for t in user.topics]
+
+    # Loads every public snippet to score them — fine at the current
+    # (seed-data) scale, but this is the same class of "fetch everything
+    # into Python" query the daily-rotation engine deliberately avoided for
+    # scalability (see _compute_rotation_snippet's docstring). Ranking by
+    # score isn't reducible to a single indexed SQL query the way the
+    # rotation's simple offset pick is, so this is an accepted v1 tradeoff —
+    # exactly the kind of cost an AI/precomputed-table v2 (nightly batch
+    # job, same mechanism as reminders) naturally resolves by not doing
+    # this work synchronously per request at all.
+    candidates = [
+        s for s in db.query(Snippet).filter(Snippet.is_public == True).all()
+        if s.id not in viewed_ids and s.id != todays_id
+    ]
+
+    scored = []
+    for s in candidates:
+        keys = _snippet_topic_keys(s)
+        score = 0
+        if any(_topic_matches_snippet(t, keys) for t in topic_names):
+            score += 2
+        if favorited_tag_names & keys:
+            score += 1
+        if score > 0:
+            scored.append((score, s, keys))
+    scored.sort(key=lambda triple: (-triple[0], triple[1].id))
+
+    def _reason_for(s, keys):
+        matched = [t for t in topic_names if _topic_matches_snippet(t, keys)]
+        if matched:
+            return f"Matches your interest in {matched[0]}"
+        return "Related to snippets you've favorited"
+
+    def _to_recommended(s, keys):
+        return RecommendedSnippet(
+            id=s.id, title=s.title, language=s.language,
+            category=s.category or "other", difficulty=s.difficulty or "beginner",
+            reason=_reason_for(s, keys),
+        )
+
+    next_snippet = _to_recommended(scored[0][1], scored[0][2]) if scored else None
+    related_snippets = [_to_recommended(s, keys) for _, s, keys in scored[1:5]]
+
+    explored_keys = set()
+    if viewed_ids:
+        for s in db.query(Snippet).filter(Snippet.id.in_(viewed_ids)).all():
+            explored_keys |= _snippet_topic_keys(s)
+    suggested_topics = [t for t in topic_names if not _topic_matches_snippet(t, explored_keys)]
+
+    return RecommendationsResponse(
+        next_snippet=next_snippet,
+        suggested_topics=suggested_topics,
+        related_snippets=related_snippets,
+    )
+
+# ==============================================================
 # DASHBOARD
 # ==============================================================
 
@@ -629,6 +1050,83 @@ def get_dashboard_data(user: User = Depends(get_current_user), db: Session = Dep
         "recent_snippets":   recent,
         "language_stats":    dict(lang_stats),
     }
+
+# ==============================================================
+# REMINDERS — cron-triggered fan-out, not user-facing
+# ==============================================================
+
+REMINDER_HOUR_TARGETS = {
+    "daily_morning":   8,
+    "daily_afternoon": 14,
+    "daily_evening":   19,
+}
+
+@app.post("/internal/reminders/run")
+def run_reminders(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Meant to be hit once an hour by an external scheduler (a Render Cron
+    Job — there's no persistent worker process on Render's free web-service
+    tier, so an in-process scheduler like APScheduler would be unreliable
+    there). Never reachable with a user JWT — a separate shared-secret
+    header, checked before any DB work.
+
+    For each opted-in user, converts "now" to THEIR local time (captured at
+    onboarding via the browser's IANA timezone) and checks whether the
+    current local hour matches their chosen window. Runs once an hour, and
+    each user matches at most one hour a day (or one hour a week for
+    weekly_summary), so there's no separate "already sent today" log yet —
+    a cron double-fire within the same hour would double-send. Accepted as
+    a v1 simplification; worth a dedupe table if that ever actually happens.
+
+    weekly_summary currently reuses the same daily-snippet content as the
+    daily reminders — a real week-in-review email (streak, snippets read,
+    category breakdown) is a natural follow-up once the analytics endpoint
+    (Phase 6) exists to source it from.
+    """
+    expected_secret = os.getenv("CRON_SECRET")
+    if not expected_secret or request.headers.get("X-Cron-Secret") != expected_secret:
+        raise HTTPException(401, "Unauthorized")
+
+    snippet = _compute_rotation_snippet(db, _utc_today())
+    if not snippet:
+        return {"checked": 0, "sent": 0, "note": "no public snippets available"}
+
+    rows = db.query(ReminderSettings).filter(ReminderSettings.frequency != "none").all()
+    sent = 0
+    for rs in rows:
+        try:
+            local_now = datetime.now(ZoneInfo(rs.timezone))
+        except Exception as e:
+            # Unknown/invalid IANA name (shouldn't happen — captured
+            # automatically at onboarding) OR the `tzdata` package is
+            # missing (zoneinfo has no built-in database on Windows, and
+            # some minimal Linux images strip system tzdata too — see
+            # requirements.txt). Either way, one bad zone must not crash
+            # the whole run for every other user — but it's logged, not
+            # silently swallowed, since it means that user's reminder time
+            # is silently wrong until this is fixed.
+            print(f"[reminders] ZoneInfo('{rs.timezone}') failed for user {rs.user_id}: {e}")
+            local_now = datetime.now(timezone.utc)
+
+        if rs.frequency == "weekly_summary":
+            is_match = local_now.weekday() == 0 and local_now.hour == REMINDER_HOUR_TARGETS["daily_morning"]
+        else:
+            is_match = local_now.hour == REMINDER_HOUR_TARGETS.get(rs.frequency)
+
+        if not is_match:
+            continue
+
+        user = db.query(User).filter(User.id == rs.user_id).first()
+        if not user:
+            continue
+
+        frontend_url = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
+        background_tasks.add_task(
+            send_email, user.email, "Today's DailyCode snippet",
+            reminder_email_html(snippet, frontend_url),
+        )
+        sent += 1
+
+    return {"checked": len(rows), "sent": sent}
 
 @app.get("/")
 def read_root():

@@ -1,11 +1,13 @@
 import { createContext, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import * as authService from "../services/authService";
+import * as userService from "../services/userService";
+import { clearToken as clearStoredToken, getToken as getStoredToken, setToken as storeToken } from "../utils/tokenStorage";
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [token, setToken] = useState(() => getStoredToken());
   const [isGuest, setIsGuest] = useState(
     () => localStorage.getItem("isGuest") === "true"
   );
@@ -13,8 +15,22 @@ export function AuthProvider({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Runs once right after a real (non-guest) login/signup session starts —
+  // not on every app load — since onboarding, once completed, stays
+  // completed forever. Fails open (lands on "/") rather than blocking
+  // access if the check itself errors; onboarding is meant to reduce
+  // friction, not gate the product.
+  async function redirectAfterAuth() {
+    try {
+      const me = await userService.getMe();
+      navigate(me.onboarding_completed ? "/" : "/onboarding", { replace: true });
+    } catch {
+      navigate("/", { replace: true });
+    }
+  }
+
   // Consolidates two pieces of legacy logic that used to live in separate
-  // files: auth.js's IIFE (Google OAuth ?token= handoff + auth.html guard)
+  // files: auth.js's IIFE (Google OAuth ?token= handoff + auth-page guard)
   // and Sidebar.js's DOMContentLoaded handler (also caught ?token= on other
   // pages). Runs once per navigation so it works no matter which route the
   // OAuth redirect (or a stale bookmark) lands on.
@@ -23,21 +39,21 @@ export function AuthProvider({ children }) {
     const googleToken = params.get("token");
 
     if (googleToken) {
-      localStorage.setItem("token", googleToken);
+      // OAuth is a full-page redirect with no "Remember Me" checkbox in the
+      // flow, so it always persists (matches the prior always-localStorage
+      // behavior).
+      storeToken(googleToken, true);
       localStorage.removeItem("isGuest");
       setToken(googleToken);
       setIsGuest(false);
       window.history.replaceState({}, document.title, location.pathname);
-      navigate("/", { replace: true });
+      redirectAfterAuth();
       return;
     }
 
-    const authed = !!localStorage.getItem("token") || localStorage.getItem("isGuest") === "true";
-    if (
-      location.pathname === "/auth.html" &&
-      authed &&
-      !params.has("force")
-    ) {
+    const authed = !!getStoredToken() || localStorage.getItem("isGuest") === "true";
+    const onAuthPage = location.pathname === "/login" || location.pathname === "/signup";
+    if (onAuthPage && authed && !params.has("force")) {
       navigate("/", { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -50,20 +66,20 @@ export function AuthProvider({ children }) {
     function handleSessionExpired() {
       setToken(null);
       setIsGuest(false);
-      navigate("/auth.html");
+      navigate("/login");
     }
     window.addEventListener("auth:session-expired", handleSessionExpired);
     return () =>
       window.removeEventListener("auth:session-expired", handleSessionExpired);
   }, [navigate]);
 
-  async function login(email, password) {
+  async function login(email, password, remember = true) {
     const data = await authService.login(email, password);
-    localStorage.setItem("token", data.access_token);
+    storeToken(data.access_token, remember);
     localStorage.removeItem("isGuest");
     setToken(data.access_token);
     setIsGuest(false);
-    navigate("/");
+    await redirectAfterAuth();
   }
 
   async function signup(email, password) {
@@ -72,18 +88,18 @@ export function AuthProvider({ children }) {
 
   function continueAsGuest() {
     localStorage.setItem("isGuest", "true");
-    localStorage.removeItem("token");
+    clearStoredToken();
     setIsGuest(true);
     setToken(null);
     navigate("/");
   }
 
   function logout() {
-    localStorage.removeItem("token");
+    clearStoredToken();
     localStorage.removeItem("isGuest");
     setToken(null);
     setIsGuest(false);
-    navigate("/auth.html");
+    navigate("/login");
   }
 
   function googleLogin() {

@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-site-verification" content="z7Mj1Pv6vn-anttbM9ODB8qZdNizalX0R8dIPdTJIpA" />
     <title>Daily Code Snippet</title>
+    <script>
+      // Sets data-theme before first paint so there's no flash of the
+      // default (Midnight) theme before React/ThemeContext mounts and
+      // corrects it. Kept in sync with ThemeContext.jsx's THEMES/migration
+      // logic — old binary "light"/"dark" values (pre-6-theme redesign)
+      // map to their closest new theme.
+      (function () {
+        var VALID = ["midnight", "solar", "forest", "lavender", "ocean", "paper"];
+        var stored = localStorage.getItem("theme");
+        var MIGRATE = { light: "paper", dark: "midnight" };
+        var theme = MIGRATE[stored] || (VALID.indexOf(stored) !== -1 ? stored : "midnight");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

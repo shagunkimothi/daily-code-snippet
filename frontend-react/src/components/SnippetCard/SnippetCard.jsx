@@ -1,20 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import Prism from "../../utils/prismSetup";
 import TagChip from "../TagChip/TagChip";
+import Card from "../ui/Card";
+import Badge from "../ui/Badge";
+import { difficultyVariant } from "../../utils/difficultyVariant";
 
-function diffBadgeClass(difficulty) {
-  const base = "rounded-full border px-2.5 py-[3px] text-[11px] font-semibold capitalize";
-  if (difficulty === "intermediate")
-    return `${base} bg-amber-subtle text-amber border-[rgba(255,170,48,0.25)]`;
-  if (difficulty === "advanced")
-    return `${base} bg-red-subtle text-red border-[rgba(255,68,102,0.25)]`;
-  return `${base} bg-green-subtle text-green border-[rgba(0,229,160,0.25)]`;
-}
-
-// Shared by Home (daily/random snippet + search results) and MySnippets.
-// `actions` renders whatever page-specific buttons belong top-right (a
-// favorite star on Home, visibility/copy/delete on MySnippets).
-// `collapsible` reproduces MySnippets' "▶ Show Code" expand/collapse.
+// Shared by Home (daily/random snippet + search results), MySnippets, and
+// Favorites. `actions` renders whatever page-specific buttons belong
+// top-right (a favorite star on Home, visibility/copy/delete on
+// MySnippets). `collapsible` reproduces MySnippets' "▶ Show Code"
+// expand/collapse.
 export default function SnippetCard({
   snippet,
   actions,
@@ -34,8 +29,8 @@ export default function SnippetCard({
   const lang = (snippet.language || "javascript").toLowerCase();
 
   return (
-    <div className="group relative mt-4 overflow-hidden rounded-xl border border-border-card bg-card px-7 py-6 shadow-md animate-fadeUp">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <Card hover className="group relative mt-4 animate-fadeUp overflow-hidden">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <h3 className="font-mono text-base font-bold tracking-tight text-text">{snippet.title}</h3>
         <div className="flex flex-shrink-0 items-center gap-2">
           <span className="whitespace-nowrap rounded-sm border border-border-card bg-primary-subtle px-2.5 py-[3px] font-mono text-[0.73rem] font-medium tracking-wide text-muted">
@@ -70,14 +65,8 @@ export default function SnippetCard({
 
       {showBadges && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className={diffBadgeClass(snippet.difficulty)}>
-            {snippet.difficulty || "beginner"}
-          </span>
-          {snippet.category && (
-            <span className="rounded-full border border-border-card bg-primary-subtle px-2.5 py-[3px] text-[11px] font-semibold capitalize text-muted">
-              {snippet.category}
-            </span>
-          )}
+          <Badge variant={difficultyVariant(snippet.difficulty)}>{snippet.difficulty || "beginner"}</Badge>
+          {snippet.category && <Badge variant="neutral">{snippet.category}</Badge>}
           {(snippet.tags || []).map((t) => (
             <TagChip key={t.id ?? t.name} label={t.name} variant="badge" />
           ))}
@@ -88,13 +77,9 @@ export default function SnippetCard({
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-muted">
           {snippet.author && <span>by {snippet.author}</span>}
           {snippet.author && snippet.reading_time_minutes && <span aria-hidden="true">·</span>}
-          {snippet.reading_time_minutes && (
-            <span>
-              ☕ {snippet.reading_time_minutes} min read
-            </span>
-          )}
+          {snippet.reading_time_minutes && <span>☕ {snippet.reading_time_minutes} min read</span>}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

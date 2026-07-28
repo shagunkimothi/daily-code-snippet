@@ -15,24 +15,30 @@ const MySnippets = lazy(() => import("./pages/MySnippets"));
 const Favorites = lazy(() => import("./pages/Favorites"));
 const AddSnippet = lazy(() => import("./pages/AddSnippet"));
 const Calendar = lazy(() => import("./pages/Calendar"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-// Route map, carried over from the legacy multi-page app's own guards:
-//  - "/auth.html" (not "/login") because the backend's Google OAuth
-//    callback redirects to `${FRONTEND_URL}/auth.html?token=...` and that
-//    URL is controlled by a backend env var we're not touching.
+// Route map:
+//  - "/login" and "/signup" both render Login (one combined form with both
+//    actions on it — see that file's comment) so each has its own clean,
+//    bookmarkable URL instead of the old shared "/auth.html". The backend's
+//    Google OAuth callback redirects to `${FRONTEND_URL}/login?token=...`.
 //  - "/" (Home) allows guests, same as the original's `!token && !isGuest`
 //    check.
-//  - Dashboard / MySnippets / Favorites / AddSnippet require a real token,
-//    same as their original `if (!token) location.href = "auth.html"` guards.
+//  - Dashboard / MySnippets / Favorites / AddSnippet / Profile require a
+//    real token — guests are bounced to /login.
 //  - "/calendar" and "/privacy" are unguarded, same as calendar.html and
 //    privacy.html originally were.
 export default function App() {
   return (
     <Suspense fallback={<Loader label="Loading..." />}>
       <Routes>
-        <Route path="/auth.html" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Login />} />
         <Route
           path="/"
           element={
@@ -62,6 +68,38 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Favorites />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Analytics />
             </ProtectedRoute>
           }
         />

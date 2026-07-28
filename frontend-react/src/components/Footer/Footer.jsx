@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 // Two variants seen in the original app: index.html's full site-footer
-// (copyright + GitHub + Privacy Policy links) and auth.html's simpler
+// (copyright + GitHub + Privacy Policy links) and the login page's simpler
 // fixed-to-viewport-bottom copyright line.
 export default function Footer({ fixed = false, showLinks = true }) {
   if (fixed) {

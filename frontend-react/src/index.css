@@ -1,26 +1,35 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap');
-@import 'prismjs/themes/prism-tomorrow.css';
+@import './styles/prism-theme.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* =====================================================
-   THEME VARIABLES — ported 1:1 from the legacy style.css
-   Dark (default) : deep space obsidian + electric cyan
-   Light (.light)  : warm ivory + ink blue
+   THEME VARIABLES — design tokens for all 6 themes.
+
+   Mechanism: <html data-theme="midnight|solar|forest|lavender|ocean|paper">
+   (set by ThemeContext, persisted to localStorage). `:root` doubles as the
+   Midnight theme's values so there's a correct-looking default even before
+   the attribute is set (see index.html's anti-flash inline script) — every
+   other theme is an explicit override block below.
+
+   Every theme defines the exact same variable set so components never
+   special-case a theme; they just consume `bg-card`, `text-muted`, etc.
+   (Tailwind classes wired to these vars in tailwind.config.js).
 ===================================================== */
 
 :root {
-  --bg:              #080c14;
-  --bg-secondary:    #0b0f1a;
-  --card:            #0d1120;
-  --card-hover:      #111627;
-  --card-elevated:   #141930;
+  /* ---- Midnight (default) — deep AMOLED black + electric cyan ---- */
+  --bg:              #000000;
+  --bg-secondary:    #050507;
+  --card:            #0a0a0d;
+  --card-hover:      #101014;
+  --card-elevated:   #16161c;
 
-  --text:            #d8e8f8;
+  --text:            #e4ecf5;
   --text-secondary:  #6e88a8;
-  --muted:           #334455;
+  --muted:           #38445a;
 
   --primary:         #00d4ff;
   --primary-hover:   #00bbdf;
@@ -43,41 +52,323 @@
   --border-hover:    rgba(0, 212, 255, 0.2);
   --border-card:     rgba(0, 212, 255, 0.06);
 
-  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.6);
-  --shadow-md:       0 4px 24px rgba(0, 0, 0, 0.7);
-  --shadow-lg:       0 12px 48px rgba(0, 0, 0, 0.8);
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.7);
+  --shadow-md:       0 4px 24px rgba(0, 0, 0, 0.8);
+  --shadow-lg:       0 12px 48px rgba(0, 0, 0, 0.85);
   --shadow-primary:  0 4px 20px rgba(0, 212, 255, 0.22);
   --shadow-cyan-lg:  0 8px 40px rgba(0, 212, 255, 0.3);
 
-  --sidebar-bg:      #07090f;
+  --sidebar-bg:      #000000;
   --sidebar-border:  rgba(0, 212, 255, 0.06);
   --sidebar-text:    #2a3a50;
   --sidebar-hover:   rgba(0, 212, 255, 0.05);
 
-  --input-bg:        #080c16;
-  --code-bg:         #040608;
+  --input-bg:        #050507;
+  --code-bg:         #000000;
   --code-border:     rgba(0, 212, 255, 0.08);
 
-  --add-bg:          #0b0f1a;
+  --add-bg:          #050507;
   --add-border:      rgba(0, 212, 255, 0.08);
   --add-hover:       rgba(0, 212, 255, 0.06);
 
   --scrollbar:       rgba(0, 212, 255, 0.12);
+  --dot-color:       rgba(0, 212, 255, 0.032);
+
+  --syntax-keyword:     #00d4ff;
+  --syntax-string:      #00e5a0;
+  --syntax-comment:     #4a5a72;
+  --syntax-function:    #7b5fff;
+  --syntax-number:      #ffaa30;
+  --syntax-operator:    #d8e8f8;
+  --syntax-punctuation: #6e88a8;
+  --syntax-tag:         #ff4466;
+  --syntax-attr:        #ffaa30;
+  --syntax-variable:    #d8e8f8;
 
   --radius-sm:  6px;
   --radius-md:  10px;
   --radius-lg:  14px;
   --radius-xl:  18px;
+  --radius-2xl: 24px;
 }
 
-body.light {
-  --bg:              #f3efe8;
-  --bg-secondary:    #ece7df;
-  --card:            #faf7f2;
-  --card-hover:      #f4f0e8;
-  --card-elevated:   #eee9e0;
+/* ---- Solar — warm cream + soft orange, for long reading sessions ---- */
+[data-theme="solar"] {
+  --bg:              #fdf6ec;
+  --bg-secondary:    #f7ecdb;
+  --card:            #fffaf1;
+  --card-hover:      #fbf1e2;
+  --card-elevated:   #f5e8d4;
 
-  --text:            #1c2030;
+  --text:            #2b2013;
+  --text-secondary:  #6b5a42;
+  --muted:           #a3906f;
+
+  --primary:         #e8863a;
+  --primary-hover:   #d97524;
+  --primary-dim:     #a85c1c;
+  --primary-subtle:  rgba(232, 134, 58, 0.1);
+  --primary-glow:    rgba(232, 134, 58, 0.2);
+  --primary-glow-lg: rgba(232, 134, 58, 0.3);
+
+  --accent:          #b5442e;
+  --accent-subtle:   rgba(181, 68, 46, 0.08);
+
+  --green:           #4d7a3a;
+  --green-subtle:    rgba(77, 122, 58, 0.1);
+  --amber:           #c98a12;
+  --amber-subtle:    rgba(201, 138, 18, 0.1);
+  --red:             #c23b3b;
+  --red-subtle:      rgba(194, 59, 59, 0.1);
+
+  --border:          rgba(43, 32, 19, 0.08);
+  --border-hover:    rgba(232, 134, 58, 0.25);
+  --border-card:     rgba(43, 32, 19, 0.07);
+
+  --shadow-sm:       0 1px 4px rgba(90, 60, 20, 0.08);
+  --shadow-md:       0 4px 18px rgba(90, 60, 20, 0.1);
+  --shadow-lg:       0 10px 40px rgba(90, 60, 20, 0.14);
+  --shadow-primary:  0 4px 18px rgba(232, 134, 58, 0.25);
+  --shadow-cyan-lg:  0 8px 32px rgba(232, 134, 58, 0.28);
+
+  --sidebar-bg:      #f7ecdb;
+  --sidebar-border:  rgba(43, 32, 19, 0.08);
+  --sidebar-text:    #a3906f;
+  --sidebar-hover:   rgba(232, 134, 58, 0.08);
+
+  --input-bg:        #fffaf1;
+  --code-bg:         #1a140c;
+  --code-border:     rgba(232, 134, 58, 0.15);
+
+  --add-bg:          #f7ecdb;
+  --add-border:      rgba(43, 32, 19, 0.08);
+  --add-hover:       rgba(232, 134, 58, 0.08);
+
+  --scrollbar:       rgba(43, 32, 19, 0.15);
+  --dot-color:       rgba(43, 32, 19, 0.04);
+
+  --syntax-keyword:     #e8863a;
+  --syntax-string:      #8fae5a;
+  --syntax-comment:     #7a6a54;
+  --syntax-function:    #f0c14b;
+  --syntax-number:      #d97524;
+  --syntax-operator:    #e8dcc8;
+  --syntax-punctuation: #a3906f;
+  --syntax-tag:         #d9634a;
+  --syntax-attr:        #f0c14b;
+  --syntax-variable:    #e8dcc8;
+}
+
+/* ---- Forest — cozy dark green "focus mode" ---- */
+[data-theme="forest"] {
+  --bg:              #0a120d;
+  --bg-secondary:    #0d1712;
+  --card:            #0f1a13;
+  --card-hover:      #142018;
+  --card-elevated:   #18271e;
+
+  --text:            #d9ecdf;
+  --text-secondary:  #6f9080;
+  --muted:           #35473d;
+
+  --primary:         #34d399;
+  --primary-hover:   #22bd85;
+  --primary-dim:     #178f65;
+  --primary-subtle:  rgba(52, 211, 153, 0.08);
+  --primary-glow:    rgba(52, 211, 153, 0.18);
+  --primary-glow-lg: rgba(52, 211, 153, 0.32);
+
+  --accent:          #a3e635;
+  --accent-subtle:   rgba(163, 230, 53, 0.1);
+
+  --green:           #22c55e;
+  --green-subtle:    rgba(34, 197, 94, 0.1);
+  --amber:           #f2b84b;
+  --amber-subtle:    rgba(242, 184, 75, 0.1);
+  --red:             #f2555f;
+  --red-subtle:      rgba(242, 85, 95, 0.1);
+
+  --border:          rgba(255, 255, 255, 0.05);
+  --border-hover:    rgba(52, 211, 153, 0.22);
+  --border-card:     rgba(52, 211, 153, 0.07);
+
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.6);
+  --shadow-md:       0 4px 24px rgba(0, 0, 0, 0.7);
+  --shadow-lg:       0 12px 48px rgba(0, 0, 0, 0.8);
+  --shadow-primary:  0 4px 20px rgba(52, 211, 153, 0.22);
+  --shadow-cyan-lg:  0 8px 40px rgba(52, 211, 153, 0.3);
+
+  --sidebar-bg:      #060b08;
+  --sidebar-border:  rgba(52, 211, 153, 0.06);
+  --sidebar-text:    #2e4038;
+  --sidebar-hover:   rgba(52, 211, 153, 0.05);
+
+  --input-bg:        #0a120d;
+  --code-bg:         #050a06;
+  --code-border:     rgba(52, 211, 153, 0.08);
+
+  --add-bg:          #0d1712;
+  --add-border:      rgba(52, 211, 153, 0.08);
+  --add-hover:       rgba(52, 211, 153, 0.06);
+
+  --scrollbar:       rgba(52, 211, 153, 0.12);
+  --dot-color:       rgba(52, 211, 153, 0.032);
+
+  --syntax-keyword:     #34d399;
+  --syntax-string:      #a3e635;
+  --syntax-comment:     #4a6156;
+  --syntax-function:    #5fd0e0;
+  --syntax-number:      #f2b84b;
+  --syntax-operator:    #d9ecdf;
+  --syntax-punctuation: #6f9080;
+  --syntax-tag:         #f2555f;
+  --syntax-attr:        #f2b84b;
+  --syntax-variable:    #d9ecdf;
+}
+
+/* ---- Lavender — soft purple with elegant accents ---- */
+[data-theme="lavender"] {
+  --bg:              #f5f0fb;
+  --bg-secondary:    #ede4f7;
+  --card:            #ffffff;
+  --card-hover:      #f7f1fc;
+  --card-elevated:   #efe6f9;
+
+  --text:            #2a2440;
+  --text-secondary:  #5c5278;
+  --muted:           #9186ad;
+
+  --primary:         #8b5cf6;
+  --primary-hover:   #7c4ded;
+  --primary-dim:     #5c37b3;
+  --primary-subtle:  rgba(139, 92, 246, 0.08);
+  --primary-glow:    rgba(139, 92, 246, 0.18);
+  --primary-glow-lg: rgba(139, 92, 246, 0.28);
+
+  --accent:          #ec4899;
+  --accent-subtle:   rgba(236, 72, 153, 0.09);
+
+  --green:           #2f9e6e;
+  --green-subtle:    rgba(47, 158, 110, 0.1);
+  --amber:           #c17f16;
+  --amber-subtle:    rgba(193, 127, 22, 0.1);
+  --red:             #d0426a;
+  --red-subtle:      rgba(208, 66, 106, 0.1);
+
+  --border:          rgba(42, 36, 64, 0.07);
+  --border-hover:    rgba(139, 92, 246, 0.25);
+  --border-card:     rgba(42, 36, 64, 0.06);
+
+  --shadow-sm:       0 1px 4px rgba(60, 40, 90, 0.06);
+  --shadow-md:       0 4px 18px rgba(60, 40, 90, 0.09);
+  --shadow-lg:       0 10px 40px rgba(60, 40, 90, 0.14);
+  --shadow-primary:  0 4px 18px rgba(139, 92, 246, 0.22);
+  --shadow-cyan-lg:  0 8px 32px rgba(139, 92, 246, 0.26);
+
+  --sidebar-bg:      #ede4f7;
+  --sidebar-border:  rgba(42, 36, 64, 0.07);
+  --sidebar-text:    #9186ad;
+  --sidebar-hover:   rgba(139, 92, 246, 0.07);
+
+  --input-bg:        #ffffff;
+  --code-bg:         #1c1730;
+  --code-border:     rgba(139, 92, 246, 0.15);
+
+  --add-bg:          #ede4f7;
+  --add-border:      rgba(42, 36, 64, 0.08);
+  --add-hover:       rgba(139, 92, 246, 0.07);
+
+  --scrollbar:       rgba(42, 36, 64, 0.14);
+  --dot-color:       rgba(42, 36, 64, 0.045);
+
+  --syntax-keyword:     #a78bfa;
+  --syntax-string:      #4ade80;
+  --syntax-comment:     #6b6280;
+  --syntax-function:    #f472b6;
+  --syntax-number:      #fbbf24;
+  --syntax-operator:    #e5defa;
+  --syntax-punctuation: #9186ad;
+  --syntax-tag:         #f87171;
+  --syntax-attr:        #fbbf24;
+  --syntax-variable:    #e5defa;
+}
+
+/* ---- Ocean — modern blue developer theme ---- */
+[data-theme="ocean"] {
+  --bg:              #060e1a;
+  --bg-secondary:    #08121f;
+  --card:            #0b1626;
+  --card-hover:      #101d30;
+  --card-elevated:   #15243a;
+
+  --text:            #dbe8f5;
+  --text-secondary:  #5f7a9a;
+  --muted:           #2f4359;
+
+  --primary:         #2b8ca6;
+  --primary-hover:   #257a91;
+  --primary-dim:     #1c5c6e;
+  --primary-subtle:  rgba(43, 140, 166, 0.08);
+  --primary-glow:    rgba(43, 140, 166, 0.18);
+  --primary-glow-lg: rgba(43, 140, 166, 0.32);
+
+  --accent:          #e0935a;
+  --accent-subtle:   rgba(224, 147, 90, 0.1);
+
+  --green:           #22c55e;
+  --green-subtle:    rgba(34, 197, 94, 0.1);
+  --amber:           #f5a524;
+  --amber-subtle:    rgba(245, 165, 36, 0.1);
+  --red:             #f24462;
+  --red-subtle:      rgba(242, 68, 98, 0.1);
+
+  --border:          rgba(255, 255, 255, 0.05);
+  --border-hover:    rgba(43, 140, 166, 0.22);
+  --border-card:     rgba(43, 140, 166, 0.07);
+
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.65);
+  --shadow-md:       0 4px 24px rgba(0, 0, 0, 0.75);
+  --shadow-lg:       0 12px 48px rgba(0, 0, 0, 0.82);
+  --shadow-primary:  0 4px 20px rgba(43, 140, 166, 0.24);
+  --shadow-cyan-lg:  0 8px 40px rgba(43, 140, 166, 0.3);
+
+  --sidebar-bg:      #04090f;
+  --sidebar-border:  rgba(43, 140, 166, 0.07);
+  --sidebar-text:    #2c3f54;
+  --sidebar-hover:   rgba(43, 140, 166, 0.06);
+
+  --input-bg:        #060e1a;
+  --code-bg:         #030810;
+  --code-border:     rgba(43, 140, 166, 0.09);
+
+  --add-bg:          #08121f;
+  --add-border:      rgba(43, 140, 166, 0.08);
+  --add-hover:       rgba(43, 140, 166, 0.06);
+
+  --scrollbar:       rgba(43, 140, 166, 0.13);
+  --dot-color:       rgba(43, 140, 166, 0.032);
+
+  --syntax-keyword:     #2b8ca6;
+  --syntax-string:      #34d399;
+  --syntax-comment:     #47617d;
+  --syntax-function:    #e0935a;
+  --syntax-number:      #f5a524;
+  --syntax-operator:    #dbe8f5;
+  --syntax-punctuation: #5f7a9a;
+  --syntax-tag:         #f24462;
+  --syntax-attr:        #f5a524;
+  --syntax-variable:    #dbe8f5;
+}
+
+/* ---- Paper — clean minimal light mode ---- */
+[data-theme="paper"] {
+  --bg:              #ffffff;
+  --bg-secondary:    #f4f5f7;
+  --card:            #f8f9fb;
+  --card-hover:      #eef0f4;
+  --card-elevated:   #e9ebef;
+
+  --text:            #14161a;
   --text-secondary:  #4a5570;
   --muted:           #8898b0;
 
@@ -102,26 +393,38 @@ body.light {
   --border-hover:    rgba(0, 119, 170, 0.22);
   --border-card:     rgba(0, 0, 0, 0.07);
 
-  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.06);
-  --shadow-md:       0 4px 18px rgba(0, 0, 0, 0.09);
-  --shadow-lg:       0 10px 40px rgba(0, 0, 0, 0.13);
+  --shadow-sm:       0 1px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md:       0 4px 18px rgba(0, 0, 0, 0.08);
+  --shadow-lg:       0 10px 40px rgba(0, 0, 0, 0.12);
   --shadow-primary:  0 4px 18px rgba(0, 119, 170, 0.2);
   --shadow-cyan-lg:  0 8px 32px rgba(0, 119, 170, 0.24);
 
-  --sidebar-bg:      #ece7df;
+  --sidebar-bg:      #f4f5f7;
   --sidebar-border:  rgba(0, 0, 0, 0.07);
   --sidebar-text:    #8898b0;
   --sidebar-hover:   rgba(0, 119, 170, 0.07);
 
-  --input-bg:        #faf7f2;
-  --code-bg:         #111520;
-  --code-border:     rgba(0, 0, 0, 0.2);
+  --input-bg:        #f8f9fb;
+  --code-bg:         #10131a;
+  --code-border:     rgba(0, 119, 170, 0.15);
 
-  --add-bg:          #ece7df;
+  --add-bg:          #f4f5f7;
   --add-border:      rgba(0, 0, 0, 0.08);
   --add-hover:       rgba(0, 119, 170, 0.07);
 
   --scrollbar:       rgba(0, 0, 0, 0.13);
+  --dot-color:       rgba(0, 0, 0, 0.04);
+
+  --syntax-keyword:     #4fc3f7;
+  --syntax-string:      #7ee787;
+  --syntax-comment:     #6e7a8a;
+  --syntax-function:    #b39ddb;
+  --syntax-number:      #ffb74d;
+  --syntax-operator:    #e4ecf5;
+  --syntax-punctuation: #8898b0;
+  --syntax-tag:         #ff8a8a;
+  --syntax-attr:        #ffb74d;
+  --syntax-variable:    #e4ecf5;
 }
 
 /* =====================================================
@@ -140,8 +443,6 @@ button, a, input, select, textarea {
   transition-duration: 0.15s !important;
 }
 
-body.no-transition, body.no-transition * { transition: none !important; }
-
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
   background-color: var(--bg);
@@ -150,12 +451,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  background-image: radial-gradient(rgba(0, 212, 255, 0.032) 1px, transparent 1px);
-  background-size: 26px 26px;
-}
-
-body.light {
-  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
   background-size: 26px 26px;
 }
 
@@ -165,7 +461,8 @@ body.light {
 ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary-glow); }
 
-/* Code block base (Prism renders inside these) */
+/* Code block base (Prism renders inside these; see styles/prism-theme.css
+   for the theme-aware token color mapping) */
 pre {
   background: var(--code-bg) !important;
   border: 1px solid var(--code-border) !important;
@@ -189,29 +486,56 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--primary-subtle), inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
+/* Native <select> arrow — still used by the handful of Phase-2 pages not
+   yet migrated to the new headless Select component. A data-URI SVG can't
+   reference the page's CSS custom properties (it's an opaque external
+   resource, not part of the cascade), so the stroke color is a literal hex
+   per theme group instead — grouped by dark/light mode since that's the
+   only thing that actually needs to differ for a chevron this small. */
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23334455' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.85rem center;
   padding-right: 2.4rem;
   cursor: pointer;
+  /* Fallback (Midnight's arrow) for the instant before ThemeContext/the
+     anti-flash script sets data-theme; every theme below overrides it. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236e88a8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
-body.light select {
+[data-theme="midnight"] select,
+[data-theme="forest"] select,
+[data-theme="ocean"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%236e88a8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+[data-theme="solar"] select,
+[data-theme="lavender"] select,
+[data-theme="paper"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%238898b0' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
-/* Keyboard-navigation focus ring. The original relied on plain browser
-   default outlines; this keeps that same safety net but makes it consistent
-   with the theme instead of a generic blue/black system outline. Only shows
-   for keyboard focus (:focus-visible), not on mouse clicks. */
+/* Keyboard-navigation focus ring. Only shows for keyboard focus
+   (:focus-visible), not on mouse clicks — also applied to the new
+   component library's interactive elements via the same selector list. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-[tabindex]:focus-visible {
+[tabindex]:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="option"]:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

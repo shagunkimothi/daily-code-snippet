@@ -1,22 +1,28 @@
 import { useEffect, useState } from "react";
-import Sidebar from "../components/Sidebar/Sidebar";
+import { Clock, Copy, Filter, RotateCw, Search as SearchIcon, Star } from "lucide-react";
+import AppShell from "../components/Layout/AppShell";
 import Footer from "../components/Footer/Footer";
 import SearchBar from "../components/SearchBar/SearchBar";
 import TagChip from "../components/TagChip/TagChip";
 import Pagination from "../components/Pagination/Pagination";
 import SnippetCard from "../components/SnippetCard/SnippetCard";
 import Loader from "../components/Loader/Loader";
+import Button from "../components/ui/Button";
+import Badge from "../components/ui/Badge";
+import Select from "../components/ui/Select";
+import EmptyState from "../components/ui/EmptyState";
 import { useAuth } from "../hooks/useAuth";
-import { useTheme } from "../hooks/useTheme";
 import { useDebounce } from "../hooks/useDebounce";
 import * as snippetService from "../services/snippetService";
 
 const LANGUAGES = ["Python", "JavaScript", "Java", "C++", "HTML", "CSS", "TypeScript", "Go", "Rust"];
+const LANGUAGE_OPTIONS = [{ value: "", label: "All Languages" }, ...LANGUAGES.map((l) => ({ value: l, label: l }))];
 const DIFFICULTIES = [
   { value: "beginner", label: "🟢 Beginner" },
   { value: "intermediate", label: "🟡 Intermediate" },
   { value: "advanced", label: "🔴 Advanced" },
 ];
+const DIFFICULTY_OPTIONS = [{ value: "", label: "All Levels" }, ...DIFFICULTIES];
 const PER_PAGE = 12;
 
 function GalleryFavButton({ id, favored, onToggle }) {
@@ -25,11 +31,9 @@ function GalleryFavButton({ id, favored, onToggle }) {
       onClick={() => onToggle(id, favored)}
       aria-label={favored ? "Remove from favorites" : "Add to favorites"}
       aria-pressed={favored}
-      className={`ml-auto text-lg leading-none transition-transform hover:scale-125 hover:text-amber ${
-        favored ? "text-amber" : "text-muted"
-      }`}
+      className={`ml-auto transition-transform hover:scale-125 ${favored ? "text-amber" : "text-muted"}`}
     >
-      {favored ? "⭐" : "☆"}
+      <Star size={18} fill={favored ? "currentColor" : "none"} aria-hidden="true" />
     </button>
   );
 }
@@ -42,7 +46,6 @@ function GalleryFavButton({ id, favored, onToggle }) {
 // filters can still be sitting there, filled in, while the daily card shows.
 export default function Home() {
   const { token, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
 
   const [search, setSearch] = useState("");
   const [language, setLanguage] = useState("");
@@ -53,6 +56,7 @@ export default function Home() {
 
   const isFiltering = Boolean(debouncedSearch.trim() || language || difficulty || activeTag);
   const [viewMode, setViewMode] = useState("daily"); // "daily" | "gallery"
+  const [filtersOpen, setFiltersOpen] = useState(false); // mobile-only disclosure
 
   const [tags, setTags] = useState([]);
 
@@ -66,7 +70,7 @@ export default function Home() {
   const [total, setTotal] = useState(0);
   const [galleryFavOverrides, setGalleryFavOverrides] = useState({});
 
-  const [copyLabel, setCopyLabel] = useState("📋 Copy");
+  const [copyLabel, setCopyLabel] = useState("Copy");
   const [countdown, setCountdown] = useState("–");
 
   // Load tags once for the filter chip row.
@@ -205,191 +209,170 @@ export default function Home() {
 
   function handleCopy() {
     navigator.clipboard.writeText(dailySnippet?.code || "");
-    setCopyLabel("✅ Copied");
-    setTimeout(() => setCopyLabel("📋 Copy"), 1500);
+    setCopyLabel("Copied!");
+    setTimeout(() => setCopyLabel("Copy"), 1500);
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
+    <AppShell title="Daily Snippet" maxWidth="880px">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="flex flex-wrap items-center gap-3 font-mono text-xl font-extrabold tracking-tight text-text sm:text-2xl">
+            Daily Code Snippet
+            <span className="animate-pulseGlow rounded-sm border border-primary-glow bg-primary-subtle px-[11px] py-[5px] font-mono text-[0.64rem] font-bold uppercase tracking-[0.1em] text-primary">
+              TODAY
+            </span>
+          </h2>
+          <p className="mt-[5px] font-mono text-[0.8rem] tracking-wide text-muted">
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        </div>
 
-      <div className="flex flex-1 justify-center px-10 py-12">
-        <div className="w-full max-w-[880px]">
-          <header className="mb-10 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="flex flex-wrap items-center gap-3.5 font-mono text-2xl font-extrabold tracking-tight text-text">
-                Daily Code Snippet
-                <span className="animate-pulseGlow rounded-sm border border-primary-glow bg-primary-subtle px-[11px] py-[5px] font-mono text-[0.64rem] font-bold uppercase tracking-[0.1em] text-primary">
-                  📅 TODAY
-                </span>
-              </h2>
-              <p className="mt-[5px] font-mono text-[0.8rem] tracking-wide text-muted">
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="secondary" onClick={logout}>
+            Logout
+          </Button>
+          <Button variant="primary" onClick={handleRandom} className="gap-1.5">
+            <RotateCw size={14} aria-hidden="true" />
+            New Random
+          </Button>
+          <Button variant="secondary" onClick={handleCopy} className="gap-1.5">
+            <Copy size={14} aria-hidden="true" />
+            {copyLabel}
+          </Button>
+          <button
+            onClick={handleToggleDailyFavorite}
+            aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+            aria-pressed={isFavorited}
+            className={`rounded-md bg-transparent p-2 transition-transform hover:scale-110 ${
+              isFavorited ? "text-amber" : "text-muted"
+            }`}
+          >
+            <Star size={20} fill={isFavorited ? "currentColor" : "none"} aria-hidden="true" />
+          </button>
+        </div>
+      </header>
 
-            <div className="flex flex-wrap items-center justify-end gap-[7px]">
-              <button
-                onClick={toggleTheme}
-                aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-border-card bg-card text-sm text-text-secondary shadow-sm hover:border-border-hover hover:bg-primary-subtle hover:text-primary"
-              >
-                {theme === "light" ? "☀️" : "🌙"}
-              </button>
-              <button
-                onClick={logout}
-                className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-md border border-border-card bg-card px-[1.1rem] py-[0.55rem] text-[0.84rem] font-medium text-text-secondary shadow-sm hover:border-border-hover hover:bg-primary-subtle hover:text-primary"
-              >
-                Logout
-              </button>
-              <button
-                onClick={handleRandom}
-                className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-md bg-primary px-[1.1rem] py-[0.55rem] text-[0.84rem] font-bold text-[#03080e] shadow-primary hover:bg-primary-hover"
-              >
-                🔄 New Random
-              </button>
-              <button
-                onClick={handleCopy}
-                className="inline-flex items-center gap-[7px] whitespace-nowrap rounded-md border border-border-card bg-card px-[1.1rem] py-[0.55rem] text-[0.84rem] font-medium text-text-secondary shadow-sm hover:border-border-hover hover:bg-primary-subtle hover:text-primary"
-              >
-                {copyLabel}
-              </button>
-              <button
-                onClick={handleToggleDailyFavorite}
-                aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-                aria-pressed={isFavorited}
-                className={`rounded-sm bg-transparent px-2 py-1 text-lg leading-none transition-transform hover:scale-125 hover:text-amber ${
-                  isFavorited ? "text-amber" : "text-muted"
-                }`}
-              >
-                {isFavorited ? "⭐" : "☆"}
-              </button>
-            </div>
-          </header>
+      <div className="mb-4">
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border-card bg-card px-3 py-2 text-xs font-semibold text-text-secondary lg:hidden"
+        >
+          <Filter size={14} aria-hidden="true" />
+          Filters
+          {isFiltering && <Badge variant="primary" size="sm">On</Badge>}
+        </button>
 
-          <div className="mb-4 flex flex-col gap-2.5">
-            <SearchBar value={search} onChange={setSearch} placeholder="🔍 Search title, code, explanation...">
-              <select value={language} onChange={(e) => setLanguage(e.target.value)} className="flex-1">
-                <option value="">All Languages</option>
-                {LANGUAGES.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="flex-1">
-                <option value="">All Levels</option>
-                {DIFFICULTIES.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
-            </SearchBar>
+        <div className={`flex-col gap-2.5 ${filtersOpen ? "flex" : "hidden"} lg:flex`}>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search title, code, explanation...">
+            <Select value={language} onChange={setLanguage} options={LANGUAGE_OPTIONS} placeholder="All Languages" className="flex-1" />
+            <Select value={difficulty} onChange={setDifficulty} options={DIFFICULTY_OPTIONS} placeholder="All Levels" className="flex-1" />
+          </SearchBar>
 
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-              <span className="flex-shrink-0 text-xs text-muted">Tags:</span>
-              <TagChip label="All" active={activeTag === ""} onClick={() => handleTagClick("")} />
-              {tags.map((tag) => (
-                <TagChip
-                  key={tag.id ?? tag.name}
-                  label={tag.name}
-                  active={activeTag === tag.name}
-                  onClick={() => handleTagClick(tag.name)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {viewMode === "gallery" && (
-            <p className="mb-1.5 min-h-[18px] text-[13px] text-muted">
-              {total} result{total !== 1 ? "s" : ""} found
-            </p>
-          )}
-
-          {viewMode === "daily" && (
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">
-                    📅 Today&apos;s Snippet
-                  </span>
-                  <span className="rounded-full border border-[rgba(34,197,94,0.25)] bg-[rgba(34,197,94,0.12)] px-2.5 py-[3px] text-[11px] font-semibold text-[#22c55e]">
-                    ✦ Auto Daily
-                  </span>
-                </div>
-                {!isRandomMode && (
-                  <span className="text-xs text-muted">
-                    Next snippet tomorrow · in <span className="font-semibold text-primary">{countdown}</span>
-                  </span>
-                )}
-              </div>
-
-              {isRandomMode && (
-                <div className="mt-2.5 flex items-center gap-2">
-                  <span className="rounded-full border border-primary-glow bg-primary-subtle px-2.5 py-[3px] text-[11px] font-semibold text-primary">
-                    🔀 Random Snippet
-                  </span>
-                  <button
-                    onClick={handleBackToDaily}
-                    className="bg-transparent text-xs text-muted underline hover:text-primary"
-                  >
-                    ← Back to today&apos;s snippet
-                  </button>
-                </div>
-              )}
-
-              {snippetLoading ? (
-                <Loader label="Loading snippet..." />
-              ) : dailySnippet ? (
-                <SnippetCard snippet={dailySnippet} />
-              ) : (
-                <p className="mt-6 text-center text-muted">No snippets available yet.</p>
-              )}
-            </div>
-          )}
-
-          {viewMode === "gallery" && (
-            <div>
-              {galleryLoading ? (
-                <Loader label="Searching..." />
-              ) : galleryResults.length === 0 ? (
-                <p className="py-8 text-center text-muted">No snippets match your filters.</p>
-              ) : (
-                galleryResults.map((s) => (
-                  <SnippetCard
-                    key={s.id}
-                    snippet={s}
-                    actions={
-                      token ? (
-                        <GalleryFavButton
-                          id={s.id}
-                          favored={Boolean(galleryFavOverrides[s.id])}
-                          onToggle={handleToggleGalleryFavorite}
-                        />
-                      ) : null
-                    }
-                  />
-                ))
-              )}
-              <Pagination
-                page={page}
-                total={total}
-                perPage={PER_PAGE}
-                onPrev={() => setPage((p) => Math.max(1, p - 1))}
-                onNext={() => setPage((p) => p + 1)}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            <span className="flex-shrink-0 text-xs text-muted">Tags:</span>
+            <TagChip label="All" active={activeTag === ""} onClick={() => handleTagClick("")} />
+            {tags.map((tag) => (
+              <TagChip
+                key={tag.id ?? tag.name}
+                label={tag.name}
+                active={activeTag === tag.name}
+                onClick={() => handleTagClick(tag.name)}
               />
-            </div>
-          )}
-
-          <Footer />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {viewMode === "gallery" && (
+        <p className="mb-1.5 min-h-[18px] text-[13px] text-muted">
+          {total} result{total !== 1 ? "s" : ""} found
+        </p>
+      )}
+
+      {viewMode === "daily" && (
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted">Today&apos;s Snippet</span>
+              <Badge variant="success">✦ Auto Daily</Badge>
+            </div>
+            {!isRandomMode && (
+              <span className="text-xs text-muted">
+                Next snippet tomorrow · in <span className="font-semibold text-primary">{countdown}</span>
+              </span>
+            )}
+          </div>
+
+          {isRandomMode && (
+            <div className="mt-2.5 flex items-center gap-2">
+              <Badge variant="primary">🔀 Random Snippet</Badge>
+              <button onClick={handleBackToDaily} className="bg-transparent text-xs text-muted underline hover:text-primary">
+                ← Back to today&apos;s snippet
+              </button>
+            </div>
+          )}
+
+          {snippetLoading ? (
+            <Loader label="Loading today's concept..." />
+          ) : dailySnippet ? (
+            <SnippetCard snippet={dailySnippet} />
+          ) : (
+            <EmptyState
+              className="mt-6"
+              icon={Clock}
+              title="Today's concept is waiting"
+              description="Check back in a moment."
+            />
+          )}
+        </div>
+      )}
+
+      {viewMode === "gallery" && (
+        <div>
+          {galleryLoading ? (
+            <Loader label="Searching..." />
+          ) : galleryResults.length === 0 ? (
+            <EmptyState
+              className="my-4"
+              icon={SearchIcon}
+              title="No matches yet"
+              description="Try a different language, difficulty, or search term."
+            />
+          ) : (
+            galleryResults.map((s) => (
+              <SnippetCard
+                key={s.id}
+                snippet={s}
+                actions={
+                  token ? (
+                    <GalleryFavButton
+                      id={s.id}
+                      favored={Boolean(galleryFavOverrides[s.id])}
+                      onToggle={handleToggleGalleryFavorite}
+                    />
+                  ) : null
+                }
+              />
+            ))
+          )}
+          <Pagination
+            page={page}
+            total={total}
+            perPage={PER_PAGE}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => p + 1)}
+          />
+        </div>
+      )}
+
+      <Footer />
+    </AppShell>
   );
 }

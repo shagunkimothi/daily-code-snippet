@@ -5,6 +5,14 @@ export async function getTags() {
   return res.data;
 }
 
+// Public-only lookup (see backend get_snippet's docstring) — used to show
+// the full snippet behind a recommendation, which only ever references
+// public snippet IDs.
+export async function getSnippetById(id) {
+  const res = await api.get(`/snippets/${id}`);
+  return res.data;
+}
+
 // Mirrors script.js's runSearch(): page/per_page always sent, the rest
 // only when non-empty so the querystring shape matches exactly.
 export async function searchSnippets({ page = 1, perPage = 12, q, language, difficulty, tag }) {

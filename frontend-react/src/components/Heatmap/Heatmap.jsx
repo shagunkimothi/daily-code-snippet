@@ -1,9 +1,15 @@
+// Uses bg-primary at increasing *opacity* (not a hardcoded color) so the
+// heatmap matches whichever of the 6 themes is active — Tailwind's `/alpha`
+// color-modifier syntax doesn't work on CSS-custom-property-based colors
+// like `--primary` (the modifier needs a literal color to compute against),
+// but the plain `opacity-*` utility works on any background since it's a
+// separate CSS property, blending down to the card's solid background.
 const LEVEL_BG = {
-  0: "bg-[rgba(255,255,255,0.04)]",
-  1: "bg-[rgba(0,212,255,0.2)]",
-  2: "bg-[rgba(0,212,255,0.4)]",
-  3: "bg-[rgba(0,212,255,0.65)]",
-  4: "bg-[rgba(0,212,255,0.9)] shadow-[0_0_6px_rgba(0,212,255,0.5)]",
+  0: "bg-card-elevated",
+  1: "bg-primary opacity-25",
+  2: "bg-primary opacity-45",
+  3: "bg-primary opacity-70",
+  4: "bg-primary opacity-100 shadow-[0_0_6px_var(--primary-glow)]",
 };
 
 function levelFor(count, max) {
@@ -29,9 +35,8 @@ function StatItem({ label, value }) {
 }
 
 // Dashboard's 365-day activity grid. Reproduces loadHeatmap()'s level
-// bucketing (count relative to the max day) 1:1, including the fixed cyan
-// rgba levels that stay cyan in both light and dark theme (matches the
-// original CSS, which didn't tie these to the --primary variable).
+// bucketing (count relative to the max day) 1:1. Cell colors now scale with
+// the active theme's --primary (see LEVEL_BG) instead of a hardcoded cyan.
 export default function Heatmap({ entries = [], currentStreak = 0, longestStreak = 0, activeDays = 0 }) {
   const max = Math.max(...entries.map((e) => e.count), 1);
 

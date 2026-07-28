@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, Table, Index
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from .database import Base
 
 # ==========================================================
@@ -12,6 +12,17 @@ snippet_tags = Table(
     Base.metadata,
     Column("snippet_id", Integer, ForeignKey("snippets.id", ondelete="CASCADE"), primary_key=True),
     Column("tag_id",     Integer, ForeignKey("tags.id",     ondelete="CASCADE"), primary_key=True),
+)
+
+# User <-> Topic (many-to-many) — the onboarding "what would you like to
+# learn" multi-select. Deliberately a separate taxonomy from `Tag` (freeform,
+# per-snippet labels like "hashmap") — Topic is a small, curated, fixed list
+# ("React", "DSA", ...) seeded once, closer in spirit to CATEGORIES below.
+user_topics = Table(
+    "user_topics",
+    Base.metadata,
+    Column("user_id",  Integer, ForeignKey("users.id",  ondelete="CASCADE"), primary_key=True),
+    Column("topic_id", Integer, ForeignKey("topics.id", ondelete="CASCADE"), primary_key=True),
 )
 
 # ==========================================================
@@ -27,7 +38,14 @@ class User(Base):
     google_id       = Column(String(255), nullable=True)
     is_active       = Column(Boolean, default=True)
 
+    # Added for the learning-platform features: signup-date analytics,
+    # once-only welcome email, and gating the post-signup onboarding wizard.
+    created_at            = Column(DateTime, default=datetime.utcnow)
+    welcome_email_sent_at = Column(DateTime, nullable=True)
+    onboarding_completed  = Column(Boolean, default=False)
+
     snippets = relationship("Snippet", back_populates="owner")
+    topics   = relationship("Topic", secondary=user_topics, backref="users")
 
 # ==========================================================
 # TAG
@@ -134,3 +152,29 @@ class Activity(Base):
     snippet_id = Column(Integer, nullable=True)
     user_id    = Column(Integer, ForeignKey("users.id"))
     timestamp  = Column(DateTime, default=datetime.utcnow)
+
+# ==========================================================
+# TOPIC — curated learning-interest taxonomy (onboarding)
+# ==========================================================
+
+class Topic(Base):
+    __tablename__ = "topics"
+
+    id   = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)
+    slug = Column(String(50), unique=True, nullable=False, index=True)
+
+# ==========================================================
+# REMINDER SETTINGS — one row per user, opt-in email cadence
+# ==========================================================
+
+class ReminderSettings(Base):
+    __tablename__ = "reminder_settings"
+
+    user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    # none | daily_morning | daily_afternoon | daily_evening | weekly_summary
+    frequency  = Column(String(20), default="none", nullable=False)
+    timezone   = Column(String(50), default="UTC", nullable=False)  # IANA name, e.g. "Asia/Kolkata"
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", backref=backref("reminder_settings", uselist=False))
