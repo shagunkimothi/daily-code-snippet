@@ -14,7 +14,7 @@
 🌐 **Live Demo:** [daily-code-snippet.vercel.app](https://daily-code-snippet.vercel.app)  
 ⚙️ **API Docs:** [daily-code-snippet.onrender.com/docs](https://daily-code-snippet.onrender.com/docs)
 
-> **Frontend migration note:** the frontend was rebuilt from vanilla HTML/CSS/JS into **React + Vite + Tailwind CSS** (`frontend-react/`), with the exact same UI, API contracts, and auth flow. The original vanilla frontend (`frontend/`) is kept in the repo during the transition but is no longer the one being developed against — see **Project Structure** and **Deployment** below.
+> **Frontend migration note:** the frontend was rebuilt from vanilla HTML/CSS/JS into **React + Vite + Tailwind CSS** (`frontend-react/`), with the exact same UI, API contracts, and auth flow. `frontend-react/` is the only frontend built and deployed to production. The original vanilla version has been archived to [`legacy/frontend/`](legacy/frontend/) for reference — see **📦 Legacy Frontend Archive** below.
 
 ---
 
@@ -106,10 +106,10 @@ daily-code-snippet/
 │   ├── .env.example
 │   └── package.json
 │
-└── frontend/                # ⚠️ Legacy vanilla JS frontend — kept during the
-                              #    transition, not actively developed against.
-                              #    Same layout as before (index.html, auth.html,
-                              #    dashboard.html, script.js, auth.js, style.css, ...).
+└── legacy/frontend/          # 📦 Archived vanilla JS frontend — reference only,
+                              #    not built or deployed. Same layout as before
+                              #    (index.html, auth.html, dashboard.html,
+                              #    script.js, auth.js, style.css, ...).
 ```
 
 ---
@@ -164,9 +164,7 @@ DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 GEMINI_API_KEY=your_gemini_api_key
 
 # Frontend — where the Google OAuth callback redirects after login.
-# frontend-react's dev server runs on port 5500 with no subpath (unlike the
-# legacy vanilla frontend, which was served from /frontend). If you're
-# running the legacy frontend instead, use http://127.0.0.1:5500/frontend.
+# frontend-react's dev server runs on port 5500 with no subpath.
 FRONTEND_URL=http://127.0.0.1:5500
 
 # Set to "true" only on Render deployment
@@ -207,14 +205,14 @@ Vite's dev server is pinned to **port 5500** on purpose — it's the only local-
 `frontend-react` reads its API base URL from `VITE_API_BASE_URL`, set in `.env.development` (already committed, points at `http://127.0.0.1:8000`) — no manual configuration needed. See `.env.example` if you need to override it locally (copy to `.env.local`, which is gitignored).
 
 <details>
-<summary>Running the legacy vanilla frontend instead</summary>
+<summary>Browsing the archived legacy vanilla frontend (reference only)</summary>
 
 ```bash
-cd frontend
+cd legacy/frontend
 python -m http.server 5500
 ```
 
-Then visit `http://127.0.0.1:5500/frontend/auth.html`. Remember `FRONTEND_URL` in `backend/.env` needs the `/frontend` suffix for this version's OAuth callback to land correctly (see step 3 above).
+Then visit `http://127.0.0.1:5500/auth.html`. Its `config.js` still points at the real backend (local or the deployed Render instance), so it will actually authenticate — it's kept purely as a reference for comparing the original vanilla implementation against `frontend-react`, not as a supported second frontend. See **📦 Legacy Frontend Archive** below.
 </details>
 
 ---
@@ -241,13 +239,7 @@ Then visit `http://127.0.0.1:5500/frontend/auth.html`. Remember `FRONTEND_URL` i
 1. `cd frontend-react && npm run build`, then publish the `dist/` folder (e.g. via a `gh-pages` branch or a deploy action) — GitHub Pages doesn't run a build step itself
 2. Same `FRONTEND_URL` note as above applies
 
-<details>
-<summary>Deploying the legacy vanilla frontend instead</summary>
-
-1. Vercel: root directory `frontend`, no build command (static site)
-2. GitHub Pages: **Settings → Pages**, source `main` branch, folder `/frontend` — live at `https://yourusername.github.io/daily-code-snippet/frontend/`
-3. `FRONTEND_URL` needs the `/frontend` suffix for this version
-</details>
+> The legacy vanilla frontend is archived, not deployed — see **📦 Legacy Frontend Archive** below.
 
 ---
 
@@ -291,6 +283,18 @@ return snippets[day_index % cycle % total]
 - Every calendar date maps to a deterministic snippet
 - Automatically advances at midnight
 - New public snippets join the rotation immediately when added
+
+---
+
+## 📦 Legacy Frontend Archive
+
+`frontend-react/` is the active, production frontend — it's the only frontend built, deployed to Vercel, and developed against going forward.
+
+The original vanilla HTML/CSS/JS frontend that preceded the React migration has been moved to [`legacy/frontend/`](legacy/frontend/) and preserved exactly as it was (same files, same code — no refactors or fixes applied). It is:
+
+- **Not used in production** — Vercel's root directory is `frontend-react`; nothing in `legacy/` is built or served live
+- **Kept for educational/reference purposes** — useful for comparing how a feature (auth flow, dashboard, calendar, etc.) was implemented in plain JS versus its 1:1 React port, to see how the migration evolved each piece
+- Still runnable standalone locally if you want to poke at it (see the collapsible section under **Local Setup** above), since its `config.js` points at the same backend
 
 ---
 

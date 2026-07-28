@@ -74,14 +74,24 @@ export default function Home() {
     snippetService.getTags().then(setTags).catch(() => {});
   }, []);
 
-  // Countdown to the next auto-daily snippet (midnight).
+  // Countdown to the next auto-daily snippet. The rotation flips at UTC
+  // midnight (not the visitor's local midnight), so this counts down to
+  // `next_rotation_at` from the /snippets/daily response rather than
+  // computing local midnight client-side — otherwise a visitor ahead of or
+  // behind UTC would see the countdown hit zero while the snippet on screen
+  // stays the same until the real (UTC) rollover.
   useEffect(() => {
     if (isRandomMode) return undefined;
-    function tick() {
+    function targetMs() {
+      if (dailySnippet?.next_rotation_at) {
+        return new Date(dailySnippet.next_rotation_at).getTime();
+      }
+      // Daily snippet hasn't loaded yet — fall back to computed UTC midnight.
       const now = new Date();
-      const midnight = new Date(now);
-      midnight.setHours(24, 0, 0, 0);
-      const diff = midnight - now;
+      return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    }
+    function tick() {
+      const diff = Math.max(0, targetMs() - Date.now());
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
@@ -90,7 +100,7 @@ export default function Home() {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [isRandomMode]);
+  }, [isRandomMode, dailySnippet?.next_rotation_at]);
 
   async function loadSnippet(fetcher, random) {
     setIsRandomMode(random);
@@ -315,7 +325,7 @@ export default function Home() {
                 </div>
                 {!isRandomMode && (
                   <span className="text-xs text-muted">
-                    Next snippet in <span className="font-semibold text-primary">{countdown}</span>
+                    Next snippet tomorrow · in <span className="font-semibold text-primary">{countdown}</span>
                   </span>
                 )}
               </div>

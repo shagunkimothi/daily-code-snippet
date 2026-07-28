@@ -41,9 +41,19 @@ class SnippetResponse(BaseModel):
     category:    str | None = "snippet"
     created_at:  datetime | None = None
     tags:        list[TagResponse] = []
+    author:               str = "DailyCode Team"
+    reading_time_minutes: int = 1
 
     class Config:
         from_attributes = True
+
+
+class DailySnippetResponse(SnippetResponse):
+    """Superset of SnippetResponse returned only by /snippets/daily — adds
+    the UTC rotation metadata the frontend needs for the "today's pick,
+    next one tomorrow" display without guessing timezones client-side."""
+    rotation_day:     str       # UTC date this pick is pinned to, "YYYY-MM-DD"
+    next_rotation_at: datetime  # UTC instant the next day's snippet takes over
 
 
 # ==========================================================

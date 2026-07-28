@@ -5,7 +5,7 @@ import re
 import traceback
 import time
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from dotenv import load_dotenv
 from google import genai
 from pydantic import BaseModel, Field
@@ -14,22 +14,24 @@ from typing import List, Optional
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 
 from app.auth import ALGORITHM, SECRET_KEY, create_access_token, oauth
-from app.database import engine, get_db
+from app.database import SessionLocal, engine, get_db
 from app.dependencies import get_current_user
-from app.models import Activity, CATEGORIES, DIFFICULTY_LEVELS, Favorite, Snippet, Tag, User, snippet_tags
+from app.models import Activity, CATEGORIES, DailySnippet, DIFFICULTY_LEVELS, Favorite, Snippet, Tag, User, snippet_tags
 from app.schemas import (
+    DailySnippetResponse,
     HeatmapEntry, HeatmapResponse,
     SnippetResponse, SnippetSearchResponse,
     TagResponse, UserCreate, UserResponse,
 )
 from app.security import hash_password, verify_password
+from app.seed_data import seed_if_empty
 from app import models
 
 load_dotenv(override=False)
@@ -119,6 +121,16 @@ def connect_with_retry(retries=5, delay=3):
     for i in range(retries):
         try:
             models.Base.metadata.create_all(bind=engine)
+            # create_all() only creates missing tables — it won't add this
+            # index to the `snippets` table on a database that already had
+            # the table before this index existed (i.e. production, which
+            # was seeded before the rotation engine shipped). CREATE INDEX
+            # IF NOT EXISTS is supported by both Postgres and SQLite, so this
+            # backfills it there while staying a no-op everywhere else.
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_snippets_public_id ON snippets (is_public, id)"
+                ))
             print("✅ DB connected successfully")
             return
         except OperationalError:
@@ -127,6 +139,16 @@ def connect_with_retry(retries=5, delay=3):
     raise Exception("❌ Could not connect to DB after retries")
 
 connect_with_retry()
+
+# Self-heals a freshly provisioned/empty database (e.g. a new Postgres
+# instance after a DB migration) so the daily/random snippet endpoints work
+# immediately after deploy without a manual `python seed.py` step. No-ops
+# once real data exists — see seed_if_empty's docstring.
+with SessionLocal() as _seed_db:
+    _seeded_count = seed_if_empty(_seed_db)
+    if _seeded_count:
+        print(f"🌱 Seeded {_seeded_count} starter snippets (database was empty)")
+
 app = FastAPI(title="DailyCode API")
 
 origins = [
@@ -192,7 +214,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         user = User(email=info["email"], google_id=info["sub"])
         db.add(user); db.commit(); db.refresh(user)
     jwt_token = create_access_token({"sub": str(user.id), "email": user.email})
-    frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app/frontend")
+    frontend = os.getenv("FRONTEND_URL", "https://daily-code-snippet.vercel.app")
     return RedirectResponse(f"{frontend}/auth.html?token={jwt_token}")
 
 # ==============================================================
@@ -270,15 +292,82 @@ def search_snippets(
     results = query.order_by(Snippet.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return SnippetSearchResponse(snippets=results, total=total, page=page, per_page=per_page)
 
-@app.get("/snippets/daily", response_model=SnippetResponse)
+def _utc_today():
+    """Calendar day used for rotation — explicitly UTC, not server-local
+    time, so every user gets the same snippet regardless of their own or
+    the host's timezone."""
+    return datetime.now(timezone.utc).date()
+
+
+def _compute_rotation_snippet(db, today):
+    """Deterministically pick today's snippet: order all public snippets by
+    id (insertion order — stable, no gaps-sensitive numbering to maintain)
+    and take the one at position (day_index % total).
+
+    - New public snippets always land at the end of that ordering (higher
+      id), so they join the rotation without disturbing anyone else's slot.
+    - Deleted/unpublished snippets simply drop out of the WHERE is_public
+      clause, so the rotation closes around the gap on its own.
+    - `ix_snippets_public_id` (is_public, id) keeps this an index scan even
+      as the table grows into the thousands — count and offset both use it.
+    - No random() anywhere: same (day, snippet set) always yields the same
+      pick, which is what lets it be cached in `daily_snippets` at all.
+    """
+    total = db.query(func.count(Snippet.id)).filter(Snippet.is_public == True).scalar()
+    if not total:
+        return None
+    offset = today.toordinal() % total
+    return (
+        db.query(Snippet)
+        .filter(Snippet.is_public == True)
+        .order_by(Snippet.id.asc())
+        .offset(offset)
+        .limit(1)
+        .first()
+    )
+
+
+@app.get("/snippets/daily", response_model=DailySnippetResponse)
 def get_daily_snippet(db: Session = Depends(get_db)):
-    snippets = db.query(Snippet).filter(Snippet.is_public == True).order_by(Snippet.id).all()
-    if not snippets:
-        raise HTTPException(404, "No public snippets available")
-    total     = len(snippets)
-    cycle     = max(total, 15)
-    day_index = date.today().toordinal()
-    return snippets[day_index % cycle % total]
+    today = _utc_today()
+    day_str = today.isoformat()
+    next_rotation_at = datetime.combine(today + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc)
+
+    pin = db.query(DailySnippet).filter(DailySnippet.day == day_str).first()
+
+    # Cache hit: today's pick was already computed (by this request or any
+    # other user's, on any instance) and its snippet is still public — every
+    # request all day long lands here, a single indexed lookup on `day`.
+    if pin and pin.snippet is not None and pin.snippet.is_public:
+        snippet = pin.snippet
+    else:
+        # First request of the UTC day, or the previously pinned snippet was
+        # deleted/made private since — (re)compute and persist the pin so
+        # subsequent requests today skip straight to the cache-hit path above.
+        snippet = _compute_rotation_snippet(db, today)
+        if snippet is None:
+            raise HTTPException(404, "No public snippets available")
+
+        if pin:
+            pin.snippet_id = snippet.id
+            db.commit()
+        else:
+            db.add(DailySnippet(day=day_str, snippet_id=snippet.id))
+            try:
+                db.commit()
+            except IntegrityError:
+                # Another concurrent request won the race and inserted first.
+                # The algorithm is a pure function of (day, public snippet
+                # set), so it computed the same snippet — nothing to do.
+                db.rollback()
+
+    # DailySnippetResponse adds fields the ORM object doesn't have, so build
+    # it from the base response's dump rather than model_validate(snippet)
+    # directly (that would fail validation on the two missing attributes).
+    payload = SnippetResponse.model_validate(snippet).model_dump()
+    payload["rotation_day"] = day_str
+    payload["next_rotation_at"] = next_rotation_at
+    return DailySnippetResponse(**payload)
 
 @app.get("/snippets/random", response_model=SnippetResponse)
 def get_random_snippet(db: Session = Depends(get_db)):
@@ -361,6 +450,13 @@ def delete_snippet(snippet_id: int, user: User = Depends(get_current_user), db: 
     # snippet_tags, which does) — clean them up explicitly first so this
     # doesn't hit a foreign-key violation on Postgres for favorited snippets.
     db.query(Favorite).filter(Favorite.snippet_id == snippet_id).delete()
+    # Same story for daily_snippets: if this snippet happens to be today's
+    # pinned rotation pick, null out the pin instead of leaving a dangling FK
+    # (this is belt-and-suspenders — get_daily_snippet() already recomputes
+    # on read if the pinned snippet turns up deleted/private, but doing it
+    # here means the delete itself can't fail on databases created before
+    # the ON DELETE SET NULL constraint existed).
+    db.query(DailySnippet).filter(DailySnippet.snippet_id == snippet_id).update({"snippet_id": None})
     db.delete(snippet)
     db.commit()
     return {"status": "deleted"}

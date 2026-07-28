@@ -43,6 +43,20 @@ export function AuthProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
 
+  // Bridges api.js's response interceptor (outside the component tree, no
+  // access to useNavigate) back into an in-SPA redirect instead of the hard
+  // window.location.href reload it used to do.
+  useEffect(() => {
+    function handleSessionExpired() {
+      setToken(null);
+      setIsGuest(false);
+      navigate("/auth.html");
+    }
+    window.addEventListener("auth:session-expired", handleSessionExpired);
+    return () =>
+      window.removeEventListener("auth:session-expired", handleSessionExpired);
+  }, [navigate]);
+
   async function login(email, password) {
     const data = await authService.login(email, password);
     localStorage.setItem("token", data.access_token);

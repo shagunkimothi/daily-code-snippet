@@ -73,9 +73,26 @@ export default function SnippetCard({
           <span className={diffBadgeClass(snippet.difficulty)}>
             {snippet.difficulty || "beginner"}
           </span>
+          {snippet.category && (
+            <span className="rounded-full border border-border-card bg-primary-subtle px-2.5 py-[3px] text-[11px] font-semibold capitalize text-muted">
+              {snippet.category}
+            </span>
+          )}
           {(snippet.tags || []).map((t) => (
             <TagChip key={t.id ?? t.name} label={t.name} variant="badge" />
           ))}
+        </div>
+      )}
+
+      {showBadges && (snippet.author || snippet.reading_time_minutes) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+          {snippet.author && <span>by {snippet.author}</span>}
+          {snippet.author && snippet.reading_time_minutes && <span aria-hidden="true">·</span>}
+          {snippet.reading_time_minutes && (
+            <span>
+              ☕ {snippet.reading_time_minutes} min read
+            </span>
+          )}
         </div>
       )}
     </div>

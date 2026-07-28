@@ -53,7 +53,12 @@ api.interceptors.response.use(
       localStorage.removeItem("token");
       localStorage.removeItem("isGuest");
       if (window.location.pathname !== "/auth.html") {
-        window.location.href = "/auth.html";
+        // This module lives outside the component tree and has no access to
+        // useNavigate(), so a plain window.location.href assignment would force
+        // a full page reload instead of an in-SPA route change. Dispatching an
+        // event lets AuthContext (which does have the router) handle the
+        // redirect with navigate() instead.
+        window.dispatchEvent(new Event("auth:session-expired"));
       }
     }
 
