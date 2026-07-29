@@ -32,10 +32,10 @@
 - Both steps skippable — onboarding lowers friction, it doesn't gate the product
 - Preferences editable anytime from Settings
 
-### 🔔 Reminders
+### 🔔 Reminder Preferences
 - Opt-in only: no reminders, daily morning/afternoon/evening, or a weekly summary
-- Timezone captured automatically from the browser at onboarding — reminders fire at *your* local time, not server time
-- Backed by a single, cron-triggered, shared-secret-gated endpoint — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for why this is a Render Cron Job hitting the API rather than an in-process scheduler
+- Timezone captured automatically from the browser at onboarding, so your preference is stored against *your* local timezone, not server time
+- Editable anytime from Settings
 
 ### 📊 Learning Analytics
 - Real reading streaks (current + longest), not just favorites — every authenticated daily-snippet view is logged once per day
@@ -62,7 +62,7 @@
 
 ### 🔐 Authentication & Settings
 - Email/password (JWT) and Google OAuth 2.0, guest mode for browsing without an account
-- "Remember me" (localStorage vs. sessionStorage), in-app password change, one-time welcome email
+- "Remember me" (localStorage vs. sessionStorage), in-app password change
 - A single Settings page for learning preferences, reminders, theme, and account/security
 
 ### 🎨 A Real Multi-Theme System
@@ -92,8 +92,6 @@ Full rationale — why Headless UI, why hand-built bar charts instead of a chart
 | **Backend** | FastAPI, SQLAlchemy ORM, Uvicorn |
 | **AI** | Google Generative AI SDK — `gemini-2.0-flash` |
 | **Auth** | JWT (`python-jose`), bcrypt (`passlib`), Google OAuth (`Authlib`) |
-| **Email** | [Resend](https://resend.com) (transactional welcome/reminder emails) |
-| **Scheduling** | Render Cron Job → `POST /internal/reminders/run` (shared-secret gated) |
 | **Database** | PostgreSQL (hosted on Render; Docker Compose for local dev) |
 | **Frontend** | React 18, Vite, Tailwind CSS, React Router, Axios, Context API |
 | **UI Primitives** | Headless UI (accessible unstyled components), Framer Motion, lucide-react, Prism.js |
@@ -117,9 +115,7 @@ daily-code-snippet/
 │   │   ├── database.py        # SQLAlchemy engine, session, Base
 │   │   ├── dependencies.py    # get_current_user dependency
 │   │   ├── seed_data.py       # Idempotent starter-snippet seeding (runs on every boot if empty)
-│   │   ├── topics_seed.py     # Idempotent seeding for the 22 onboarding topics
-│   │   ├── email.py           # send_email() — Resend HTTP API abstraction
-│   │   └── email_templates.py # Shared HTML email layout + welcome/reminder templates
+│   │   └── topics_seed.py     # Idempotent seeding for the 22 onboarding topics
 │   ├── seed.py                 # CLI wrapper: `python seed.py` to seed manually
 │   ├── docker-compose.yml      # Local Postgres + backend, for when the Render external URL isn't reachable
 │   ├── requirements.txt
@@ -162,7 +158,7 @@ daily-code-snippet/
 
 | Table | Purpose |
 | :--- | :--- |
-| `users` | Auth + profile — includes `created_at`, `welcome_email_sent_at`, `onboarding_completed` |
+| `users` | Auth + profile — includes `created_at`, `onboarding_completed` |
 | `snippets` | The core content — public/private, difficulty, category, computed `reading_time_minutes`/`author` |
 | `tags` / `snippet_tags` | Freeform, per-snippet labels (M2M) |
 | `topics` / `user_topics` | Curated onboarding taxonomy — 22 fixed topics (M2M with `users`) |
@@ -183,7 +179,6 @@ Full column-level detail and the ER diagram are in [`docs/ARCHITECTURE.md`](docs
 - PostgreSQL database — either the Render-hosted one via `DATABASE_URL`, or a local one via Docker (see below)
 - Google Cloud project with OAuth 2.0 credentials
 - Google AI Studio API key
-- A [Resend](https://resend.com) API key (optional locally — email sending no-ops gracefully without it, logging instead of failing)
 
 ### 1. Clone the repo
 
@@ -229,13 +224,6 @@ GEMINI_API_KEY=your_gemini_api_key
 
 # Frontend — where the Google OAuth callback redirects after login.
 FRONTEND_URL=http://127.0.0.1:5500
-
-# Email (Resend) — optional locally; omit to have emails log-and-skip instead of send
-RESEND_API_KEY=your_resend_api_key
-EMAIL_FROM=DailyCode <onboarding@resend.dev>
-
-# Shared secret for POST /internal/reminders/run — never a user JWT
-CRON_SECRET=some_random_string
 
 # Set to "true" only on Render deployment
 RENDER=false
@@ -300,9 +288,8 @@ Then visit `http://127.0.0.1:5500/auth.html`. Its `config.js` still points at th
 1. Connect your GitHub repo to [Render](https://render.com)
 2. Create a new **Web Service**, root directory: `backend`
 3. Build command: `pip install -r requirements.txt` · Start command: `uvicorn app.main:app --host 0.0.0.0 --port 10000`
-4. Add all `.env` variables (including `RESEND_API_KEY`, `EMAIL_FROM`, `CRON_SECRET`) in Render's **Environment** tab
+4. Add all `.env` variables in Render's **Environment** tab
 5. Set `RENDER=true`
-6. **For reminders to actually send**: add a Render **Cron Job** that runs hourly and calls `POST /internal/reminders/run` with header `X-Cron-Secret: <your CRON_SECRET>` — the endpoint itself works standalone, this step just wires up the schedule
 
 ### Frontend → Vercel
 1. Connect repo to [Vercel](https://vercel.com), root directory `frontend-react`
@@ -323,10 +310,10 @@ Then visit `http://127.0.0.1:5500/auth.html`. Its `config.js` still points at th
 ### Auth
 | Method | Endpoint | Auth | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/signup` | ❌ | Register with email/password; triggers a one-time welcome email |
+| `POST` | `/auth/signup` | ❌ | Register with email/password |
 | `POST` | `/auth/login` | ❌ | Login, returns JWT |
 | `GET` | `/auth/google/login` | ❌ | Redirect to Google OAuth |
-| `GET` | `/auth/google/callback` | ❌ | Google OAuth callback; also triggers the welcome email on first login |
+| `GET` | `/auth/google/callback` | ❌ | Google OAuth callback |
 
 ### User Profile & Preferences
 | Method | Endpoint | Auth | Description |
@@ -371,11 +358,6 @@ Then visit `http://127.0.0.1:5500/auth.html`. Its `config.js` still points at th
 | `GET` | `/recommendations/me` | ✅ | Rule-based next-snippet recommendation + related suggestions + unexplored topics |
 | `GET` | `/dashboard/me` | ✅ | Dashboard stats (own snippets, favorites, this-week count) |
 
-### Internal
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/internal/reminders/run` | 🔒 `X-Cron-Secret` header (not a user JWT) | Cron-triggered reminder fan-out |
-
 ---
 
 ## 🌱 How the Daily Snippet Works
@@ -405,16 +387,13 @@ Full algorithm reasoning and the composite index behind it are in [`docs/ARCHITE
 - **+1** if it shares a tag with something you've favorited
 - Already-viewed snippets and today's rotation pick are excluded
 
-This is deliberately swappable: once recommendations move to an LLM call (too slow/costly to run per page load), a `recommendations` table gets populated by a nightly batch job — same Render Cron mechanism as reminders — and the endpoint starts reading from that table instead of computing live. **The response shape doesn't change**, so the frontend built against v1 keeps working untouched when v2 ships.
+This is deliberately swappable: once recommendations move to an LLM call (too slow/costly to run per page load), a `recommendations` table gets populated by a nightly batch job via a Render Cron Job, and the endpoint starts reading from that table instead of computing live. **The response shape doesn't change**, so the frontend built against v1 keeps working untouched when v2 ships.
 
 ---
 
-## 📬 Email & Reminders
+## 🔮 Future Enhancements
 
-- Sent via [Resend](https://resend.com)'s HTTP API through a single `send_email()` abstraction (`backend/app/email.py`) — swapping providers later is a one-file change
-- Shared HTML layout (`backend/app/email_templates.py`) with brand header/footer; welcome and reminder templates both inherit it
-- All user-generated content (snippet titles/explanations) is HTML-escaped before going into email templates — unlike JSX, an f-string doesn't auto-escape, so this matters
-- Reminders are opt-in only, editable anytime in Settings, and every email links back there
+- **Transactional email** — welcome emails and actual delivery of reminder notifications. Reminder frequency and timezone are already configurable in Settings (see **Reminder Preferences** above); the send/delivery pipeline itself isn't wired up yet.
 
 ---
 

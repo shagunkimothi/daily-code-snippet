@@ -1,0 +1,27 @@
+https://us-east-1.console.aws.amazon.com/systems-manager/session-manager/i-063acfba2a607e046
+
+
+http://ec2-34-207-151-138.compute-1.amazonaws.com/wordpress
+
+
+website-bucket-c47268b0-85f5 
+
+
+
+sg-02f0a95baa9a392b6
+
+
+mydb.cnsmw0y8uh8z.us-east-1.rds.amazonaws.com
+
+
+render
+Hostname
+An internal hostname used by your Render services.
+dpg-d9jgc27avr4c73cfjbv0-a
+
+database daily_code_snippet_db
+usrname : daily_code_snippet_db_user
+ pass : lgKTFyMb9OTWhApoGWfTsTwCSrBafUIT
+internal url : postgresql://daily_code_snippet_db_user:lgKTFyMb9OTWhApoGWfTsTwCSrBafUIT@dpg-d9jgc27avr4c73cfjbv0-a/daily_code_snippet_db
+
+external database url : postgresql://daily_code_snippet_db_user:lgKTFyMb9OTWhApoGWfTsTwCSrBafUIT@dpg-d9jgc27avr4c73cfjbv0-a.oregon-postgres.render.com/daily_code_snippet_db
