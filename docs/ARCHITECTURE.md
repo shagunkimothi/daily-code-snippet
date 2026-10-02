@@ -14,6 +14,7 @@ This document explains the *why* behind DailyCode's design — the daily-rotatio
 - [Recommendations: v1 → v2](#recommendations-v1--v2)
 - [Security](#security)
 - [Performance](#performance)
+- [Retrieval-Augmented Generation](#retrieval-augmented-generation)
 - [Known Limitations & Roadmap to v2.0](#known-limitations--roadmap-to-v20)
 
 ---
@@ -143,6 +144,7 @@ erDiagram
     SNIPPETS }o--o{ TAGS : tagged_with
     SNIPPETS ||--o{ FAVORITES : favorited_as
     SNIPPETS ||--o{ DAILY_SNIPPETS : pinned_as
+    SNIPPETS ||--o{ SNIPPET_EMBEDDINGS : indexed_as
 
     USERS {
         int id PK
@@ -165,6 +167,15 @@ erDiagram
         string category
         datetime created_at
         int owner_id FK "nullable — system-seeded snippets"
+    }
+    SNIPPET_EMBEDDINGS {
+        int id PK
+        int snippet_id FK "ON DELETE CASCADE"
+        text chunk_text
+        int chunk_index "unique per snippet"
+        string embedding_model
+        vector embedding "384 dimensions"
+        datetime created_at
     }
     TAGS {
         int id PK
@@ -208,6 +219,7 @@ Deliberate design choices worth calling out:
 - **No `EmailPreferences` table.** There is currently exactly one opt-in email type (reminders), and `reminder_settings.frequency = "none"` already fully expresses "stop emailing me." A dedicated preferences table becomes worth its cost the moment a *second* email type exists (e.g. product announcements) — until then it would be an empty abstraction.
 - **No `recommendations` table (yet).** See [Recommendations: v1 → v2](#recommendations-v1--v2) below for exactly when and why one gets added.
 - **`daily_snippets.snippet_id` is `ON DELETE SET NULL`**, not `CASCADE` or unconstrained — deleting today's pinned snippet nulls the pin rather than either blocking the delete or leaving a dangling foreign key; the next request to `/snippets/daily` recomputes and re-pins automatically.
+- **Snippet embeddings live in their own `snippet_embeddings` table**, with one row per text chunk and an HNSW index using pgvector's cosine operator class. The 384 dimensions match `BAAI/bge-small-en-v1.5`. The app's `create_all()` startup path deliberately excludes this table: the Alembic migration enables the `vector` extension and creates the table/index, so production schema changes are explicit and versioned. Locally, start the database and backend first (`docker compose up -d db backend` from `backend/`) so the existing application initializes its base tables; then run `docker compose exec backend alembic upgrade head`. Downgrading drops the embedding table but leaves the shared PostgreSQL extension installed.
 
 ---
 
@@ -298,6 +310,36 @@ The response schema (`RecommendationsResponse` / `RecommendedSnippet`) doesn't n
 - View-logging, welcome emails, and reminder sends all run via FastAPI `BackgroundTasks` and are wrapped in try/except that logs-and-continues — none of them can make the triggering request slower or fail because a non-critical side effect (an email, an analytics event) had a problem.
 - **Known cost, not yet paid off**: `/recommendations/me` loads every public snippet into Python to score them — the same class of "fetch everything" operation the rotation engine specifically avoided. Acceptable at the current (seed-data) scale; the v2 AI/precomputed-table path (above) naturally resolves this by not doing the work synchronously per request at all.
 - Frontend: route-level code splitting (`React.lazy` per page) predates this feature set and still applies to every new page (`Onboarding`, `Settings`, `Analytics`); shared UI primitives and third-party libraries (Framer Motion, Headless UI, lucide-react) are deduplicated by Rollup into shared chunks rather than bundled once per page.
+
+## Retrieval-Augmented Generation
+
+DailyCode's RAG feature stays deliberately small and inspectable: it uses no LangChain or agent framework. The React Home search can switch from keyword matching to semantic retrieval, while the existing Add Snippet AI screen includes an “Ask Library” tab for grounded answers.
+
+```text
+React frontend
+    ↓
+FastAPI API
+    ↓
+RAG service
+    ↓
+BAAI/bge-small-en-v1.5 query embedding
+    ↓
+pgvector cosine retrieval
+    ↓
+top-k authorized snippets
+    ↓
+Gemini
+    ↓
+grounded response
+    ↓
+React UI
+```
+
+`BAAI/bge-small-en-v1.5` is compact enough to run locally and produces useful semantic representations for short code-and-explanation documents. It produces **384-dimensional** normalized vectors, matching the `vector(384)` column in `snippet_embeddings`. PostgreSQL's pgvector extension ranks with cosine distance; `similarity_score` is returned as `1 - cosine_distance`. The HNSW index uses pgvector's `vector_cosine_ops` operator class, so this retrieval shape remains indexed as the library grows.
+
+Privacy is part of the retrieval query, not a post-processing step. For guests, SQL filters to public snippets. For authenticated callers, it filters to `is_public = true OR owner_id = current_user_id` **before** ordering by cosine distance and applying `LIMIT`. Therefore a different user's private content cannot appear in results or enter Gemini's context. Embedding vectors are never returned to the browser.
+
+`GET /snippets/semantic-search` performs retrieval only. Matches must clear a small cosine-similarity floor (`0.35`), so an unrelated query can correctly return no results. `POST /snippets/generate-rag` has three explicit stages: retrieve permitted matches, construct context from only those matches, then ask Gemini to answer from that context. With no retrieved context it does not call Gemini and instead returns a clear grounded-no-context response. Gemini is a generation layer, not the data source of truth.
 
 ## Known Limitations & Roadmap to v2.0
 

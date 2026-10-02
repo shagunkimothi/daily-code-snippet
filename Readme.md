@@ -1,420 +1,655 @@
-# 🧩 DailyCode
+# Daily Code — AI-Driven Developer Learning Platform
 
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Build-Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/CSS-Tailwind-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Gemini AI](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Render](https://img.shields.io/badge/Backend-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/)
-[![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+> A personalized developer learning platform for discovering, organizing, searching, and learning from code snippets, enhanced with semantic search and Retrieval-Augmented Generation (RAG).
 
-**DailyCode is a developer learning companion, not a snippet repository.** It delivers one curated programming concept a day, remembers what you're actually interested in, tracks the habit itself (not just the content), and nudges you back — gently, and only if you ask it to.
+## Screenshots
 
-🌐 **Live App:** [daily-code-snippet.vercel.app](https://daily-code-snippet.vercel.app)
-⚙️ **Live API + interactive docs:** [daily-code-snippet.onrender.com/docs](https://daily-code-snippet.onrender.com/docs)
-📐 **Architecture deep-dive:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the daily-rotation algorithm, the 6-theme engine, the recommendation engine's rule-based→AI upgrade path, full database ER diagram, and the reasoning behind each
+The repository's screenshot assets are stored in `assests/` (the existing directory name).
 
-> **Frontend migration note:** the frontend was rebuilt from vanilla HTML/CSS/JS into **React + Vite + Tailwind CSS** (`frontend-react/`), with the same auth flow and API contracts, then given its own visual identity through a full design-system redesign. `frontend-react/` is the only frontend built and deployed to production. The original vanilla version is archived at [`legacy/frontend/`](legacy/frontend/) for reference — see **📦 Legacy Frontend Archive** below.
+### Daily learning
 
----
+![Daily Code home](assests/daily-code-home.png)
 
-## ✨ Features
+### Ask Library with RAG sources
 
-### 📅 Daily Snippet Engine
-- A new public snippet is deterministically selected every UTC day — no `random()`, no cron job, same snippet for every user
-- The pick is cached per day (`daily_snippets` pin table) so every request after the first is a single indexed lookup, not a recomputation
-- Random snippet mode for exploring beyond today's pick
-- Reading time, category, difficulty, and author shown alongside every snippet
+![Ask Library RAG answer and sources](assests/ask-library-rag.png)
 
-### 🎯 Personalized Onboarding
-- A short two-step wizard right after first login: **what do you want to learn** (pick from 22 curated topics) → **how often should we remind you**
-- Both steps skippable — onboarding lowers friction, it doesn't gate the product
-- Preferences editable anytime from Settings
+### Dashboard and learning activity
 
-### 🔔 Reminder Preferences
-- Opt-in only: no reminders, daily morning/afternoon/evening, or a weekly summary
-- Timezone captured automatically from the browser at onboarding, so your preference is stored against *your* local timezone, not server time
-- Editable anytime from Settings
+![Daily Code dashboard](assests/dashboard.png)
 
-### 📊 Learning Analytics
-- Real reading streaks (current + longest), not just favorites — every authenticated daily-snippet view is logged once per day
-- Weekly/monthly activity, category distribution, reading consistency %, average learning time, and a 2-week trend
-- A separate `/analytics` page by design — the Dashboard stays "today's notebook," this is the opt-in deep-dive for people who want the numbers
+### Bulk snippet import
 
-### 🧭 Smart Recommendations
-- Rule-based v1: scores unviewed public snippets against your selected topics and favorited tags, surfaces a "next" pick plus related suggestions and topics you haven't explored yet
-- Architected so a future AI-generated version is a drop-in swap behind the same endpoint — see the "Recommendations v1 → v2" section in the architecture doc
+![Bulk import interface](assests/bulk-import.png)
 
-### 🧠 AI-Powered Generation
-- Generate complete snippets from a topic using **Gemini 2.0 Flash**
-- AI auto-fills title, language, code, explanation, difficulty, category, and tags
-- Difficulty/category values are normalized server-side to the app's exact enums regardless of how the model phrases them
+### Analytics
 
-### 🔍 Smart Search & Filtering
-- Full-text search across title, code, and explanation
-- Filter by language, difficulty, category, and tags via searchable, keyboard-accessible dropdowns
-- Paginated results; public snippets visible to all, private snippets visible only to the owner
+![Learning analytics](assests/analytics.png)
 
-### ⭐ Favorites, Dashboard & Personal Library
-- Favorite any snippet with one click; add your own via manual entry, AI generation, or bulk JSON import
-- Dashboard: today's snippet as the hero, quiet supporting stats, recommended-next card, recent activity, and a GitHub-style activity heatmap
+## What is Daily Code?
 
-### 🔐 Authentication & Settings
-- Email/password (JWT) and Google OAuth 2.0, guest mode for browsing without an account
-- "Remember me" (localStorage vs. sessionStorage), in-app password change
-- A single Settings page for learning preferences, reminders, theme, and account/security
+Daily Code is a developer learning platform, not only a place to store code. It combines a curated daily programming snippet with tools for building a personal code library, searching snippets, and tracking learning activity.
 
-### 🎨 A Real Multi-Theme System
-- **6 built-in themes** — 🌙 Midnight, ☀️ Solar, 🌿 Forest, 💜 Lavender, 🌊 Ocean, 🤍 Paper — each defining its own full token set (backgrounds, cards, borders, shadows, and syntax-highlighting colors), not just a light/dark palette swap
-- A visual Theme Gallery with live preview cards; switching is instant and animates smoothly across every element
-- Mobile-first responsive shell: a persistent, collapsible sidebar on desktop becomes a slide-out drawer on mobile
+Visitors can browse public content, while signed-in users can manage their own snippets, save favorites, personalize learning, and ask questions grounded in snippets they are authorized to access. Semantic retrieval and RAG add to the original daily-learning and library flows rather than replacing them.
 
----
+## Key features
 
-## 🎨 Design System
+### Daily learning
 
-The redesign isn't a component library bolted onto the app — every color, radius, and shadow is a CSS custom property, and every component consumes it through Tailwind (`bg-card`, `text-muted`, `border-border-card`), never a hardcoded value. That's what makes 6 themes possible without six versions of every component.
+- A public snippet is selected deterministically for each UTC day and pinned in the `daily_snippets` table, so visitors see the same daily selection.
+- The first request of a day calculates and stores the selection; later requests use the saved pin.
+- Browse a random public snippet when you want to explore beyond the daily pick.
+- Browse and filter snippets by language, difficulty, and tags.
+- Snippet cards include explanations and metadata such as category, difficulty, author, and estimated reading time; the home view supports copying the daily snippet's code.
 
-- **Tokens**: `frontend-react/src/index.css` — one `:root` block (Midnight) plus five `[data-theme="…"]` overrides, all sharing the exact same variable names
-- **Components**: `frontend-react/src/components/ui/` — `Button` (variants incl. a polymorphic `as="link"`), `Card`, `Badge`, `Input`/`Textarea`, `Select` (searchable, Headless UI `Combobox`-based), `Dialog`, `Switch`, `Tabs`, `Tooltip`, `EmptyState`, `Spinner`, `StatCard`
-- **Motion**: Framer Motion for micro-interactions (button press, dialog/drawer transitions, theme-selection feedback) — subtle and fast, never decorative for its own sake
-- **Icons**: `lucide-react` throughout, `currentColor`-based so they re-theme for free
+### Personal library
 
-Full rationale — why Headless UI, why hand-built bar charts instead of a charting library, the anti-flash theme-loading script, the full 6-theme palette table — is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+- Browse public snippets as a guest.
+- Create snippets manually, generate a draft with AI, and manage your own snippets.
+- Set a snippet's visibility to public or private. Owners can view and manage their own snippets; private snippets are not exposed to other users.
+- Add tags, mark snippets as favorites, and browse your favorites and personal library.
+- Bulk import JSON, CSV, or TXT through the existing Add Snippet experience.
 
----
+### Search
 
-## 🛠️ Tech Stack
+- Keyword search over snippet titles, code, and explanations, with language, difficulty, category, tag, and visibility filters.
+- Semantic search powered by `BAAI/bge-small-en-v1.5` embeddings and PostgreSQL/pgvector.
+- Semantic results include similarity scores. Search by a concept even when the query does not use the snippet's exact terms.
 
-| Layer | Technology |
-| :--- | :--- |
-| **Backend** | FastAPI, SQLAlchemy ORM, Uvicorn |
-| **AI** | Google Generative AI SDK — `gemini-2.0-flash` |
-| **Auth** | JWT (`python-jose`), bcrypt (`passlib`), Google OAuth (`Authlib`) |
-| **Database** | PostgreSQL (hosted on Render; Docker Compose for local dev) |
-| **Frontend** | React 18, Vite, Tailwind CSS, React Router, Axios, Context API |
-| **UI Primitives** | Headless UI (accessible unstyled components), Framer Motion, lucide-react, Prism.js |
-| **Deployment** | Backend → Render · Frontend → Vercel / GitHub Pages |
+### RAG / Ask Library
 
----
+- Ask questions about the signed-in user's Daily Code library.
+- Retrieve relevant public snippets and the current user's own private snippets.
+- Generate an answer with Gemini using retrieved snippets as structured context.
+- Display source snippets and similarity scores with the answer; when retrieval finds no context, return an explicit no-context response.
 
-## 📂 Project Structure
+### AI snippet generation
 
+Generate a snippet draft from a requested topic and language. This is separate from RAG: the generation endpoint does not retrieve library snippets as grounding context.
+
+### Learning and personalization
+
+- A skippable onboarding flow for selecting learning interests and reminder preferences.
+- A curated set of 22 learning topics; preferences can be changed later.
+- Optional reminder settings: none, daily morning, afternoon, or evening, or a weekly summary. The browser's IANA timezone is saved with the preference. Email delivery uses the optional Resend integration and an external scheduler calling a protected backend endpoint; without those configured, reminders are not sent. The current weekly-summary setting reuses the daily-snippet reminder content.
+- A dashboard with the daily snippet, recommendations, recent activity, and activity heatmap.
+- Learning analytics including current and longest streaks, active days, viewed snippets, category distribution, reading consistency, average learning time, and recent activity trends.
+- Rule-based recommendations use selected topics, viewed snippets, and favorited tags.
+
+### Authentication, themes, and interface
+
+- Email/password authentication using JWT access tokens and Google OAuth.
+- A remember-me choice stores authentication in local storage or session storage; users can change their password from Settings.
+- Guest browsing for public content.
+- A responsive React interface with six themes: Midnight, Solar, Forest, Lavender, Ocean, and Paper.
+- The selected theme is saved in browser local storage. New users and guests without a saved preference start with Paper; returning users retain their saved theme.
+- The theme is applied before the first page paint where possible to reduce theme flicker.
+
+## Application flow: the original snippet and learning experience
+
+The original app flow remains the foundation of Daily Code. React screens call the shared API/service layer; FastAPI handles validation, authentication, visibility, and application logic; SQLAlchemy reads and writes PostgreSQL. The RAG feature is an additional path described below.
+
+```mermaid
+flowchart LR
+    Person[Guest or signed-in learner] --> React[React pages and components]
+    React --> State[Auth and theme contexts]
+    React --> Services[Axios API services]
+    Services --> API[FastAPI routes]
+    API --> Auth[JWT or Google OAuth]
+    API --> Rules[Validation, access rules, learning logic]
+    Rules --> DB[(PostgreSQL)]
+    DB --> Rules
+    Rules --> Services
+    Services --> React
 ```
+
+In everyday use, the frontend requests the daily or public snippets, searches or filters them, and renders results using the shared snippet UI. Authentication-aware routes and the backend decide which personal actions are available. Signed-in reading and favorite activity feed the dashboard, heatmap, analytics, and rule-based recommendations.
+
+AI snippet generation is a separate flow: an authenticated user supplies a topic and language, FastAPI asks Gemini for a structured draft containing title, language, code, explanation, difficulty, category, and tags, and the backend normalizes difficulty and category to the application's allowed values. It does not retrieve library snippets as grounding context.
+
+### Daily selection, learning, and recommendation flow
+
+```mermaid
+flowchart TD
+    Open[Open Daily Code] --> Daily[GET /snippets/daily]
+    Daily --> Pin{Today's UTC selection pinned?}
+    Pin -- Yes --> Return[Return pinned public snippet]
+    Pin -- No --> Select[Deterministically select from public snippets]
+    Select --> Save[Save daily_snippets pin]
+    Save --> Return
+    Return --> Read[User reads snippet]
+    Read --> Activity[Record one daily-view activity for signed-in user]
+    Activity --> Learn[Dashboard, heatmap, analytics]
+    Learn --> Recommend[Rule-based recommendations from interests and favorites]
+```
+
+### Frontend design system
+
+The current frontend is the React/Vite application in `frontend-react/`; the earlier vanilla frontend is archived under `legacy/frontend/` and is not the active application. The current UI uses Tailwind CSS and shared CSS theme tokens, reusable UI primitives (buttons, cards, badges, inputs, selects, dialogs, switches, tabs, tooltips, empty states, spinners, and stat cards), Headless UI controls, Framer Motion, Lucide icons, and Prism.js for code highlighting. Routes are lazy-loaded and use shared auth/theme contexts and API services. On desktop the app uses a collapsible sidebar; on smaller screens it becomes a drawer.
+
+The theme catalog and persisted preference live in the existing theme context. The HTML entry point applies the saved or default theme before React renders to help avoid a flash of the wrong theme.
+
+## Semantic search and RAG
+
+### In simple terms
+
+Semantic search finds code by meaning, not just by matching the exact words typed. RAG (retrieval-augmented generation) takes that a step further: Daily Code finds relevant snippets the user is allowed to access, sends those snippets as context to Gemini, then returns an answer with source snippets. Gemini is not given the user's entire database or another user's private content.
+
+### Technical RAG pipeline
+
+```mermaid
+flowchart TD
+    Query[Question entered in React] --> Route[POST /snippets/rag]
+    Route --> Auth[Authenticate user]
+    Auth --> Embed[Embed question with BAAI/bge-small-en-v1.5]
+    Embed --> Search[Cosine similarity search in pgvector]
+    Search --> Filter[Restrict to public snippets and this user's private snippets]
+    Filter --> TopK[Rank and select authorized top-k matches]
+    TopK --> Context[Build structured context: title, language, explanation, code]
+    Context --> Gemini[Generate answer with Gemini]
+    Gemini --> Response[Return answer, grounded flag, source snippets and scores]
+    Response --> UI[Display answer and retrieved sources in React]
+```
+
+### How embeddings and semantic retrieval work
+
+1. The backend creates snippet text from useful fields such as title, language, category, difficulty, explanation, and code.
+2. `sentence-transformers` with `BAAI/bge-small-en-v1.5` generates normalized 384-dimensional vectors. The backend attempts to create an embedding when a snippet is added; the backfill command can process existing snippets.
+3. PostgreSQL stores vectors in `snippet_embeddings` using pgvector. An HNSW index uses cosine vector operations.
+4. For semantic search, the backend embeds the query, filters results to public snippets and (when authenticated) the current user's own private snippets, ranks by cosine similarity, and returns the top-k snippets with similarity scores.
+
+Semantic search is exposed at `GET /snippets/semantic-search`. It can be used by guests for public snippets; authenticated users can also retrieve their own private snippets.
+
+### How grounded generation works
+
+`POST /snippets/rag` requires authentication. It retrieves authorized matches using the same semantic retrieval rules, then serializes only those matches into structured context for Gemini. The context includes relevant snippet fields, not embedding vectors. Gemini is instructed to treat snippet contents as untrusted reference data and answer from the supplied Daily Code context.
+
+If no relevant matches are retrieved, the endpoint does not ask Gemini to invent a source. It returns an explicit no-context response with `grounded: false` and an empty source list. When context is available, the answer and retrieved source snippets (including similarity scores) are returned to React.
+
+The backend also exposes `POST /snippets/generate-rag` as a compatibility alias for the same RAG flow. AI snippet generation at `POST /snippets/generate-ai` is a separate feature and does not use RAG retrieval.
+
+### Privacy and security
+
+- Backend retrieval enforces snippet visibility before matches are returned or RAG context is built.
+- Guests can search public snippets; authenticated users can search public snippets and their own private snippets.
+- A user's private snippets are excluded from another user's results.
+- Gemini receives only the authorized top-k snippets selected for that request. The full database and vector values are not sent.
+- RAG requests require an authenticated user.
+- JWT signing keys, OAuth credentials, Gemini keys, and email-provider keys are backend configuration and should never be placed in frontend code or committed to Git.
+
+### Semantic search vs. RAG
+
+| Flow | What it does |
+| --- | --- |
+| Semantic search | Query → BGE embedding → authorized vector similarity retrieval → relevant snippets and scores |
+| RAG | Query → BGE embedding → authorized vector retrieval → structured context → Gemini → answer with retrieved sources |
+
+Semantic search returns matching snippets; it does not generate an answer. RAG reuses the retrieval step and supplies only those authorized matches to Gemini to generate a context-aware response.
+
+### Manual implementation
+
+The retrieval and generation steps are implemented directly in the backend rather than through LangChain. This keeps embedding generation, PostgreSQL retrieval, authorization, context construction, no-context handling, and Gemini calls explicit in the application.
+
+## Technology stack
+
+| Area | Technologies |
+| --- | --- |
+| Frontend | React 18, Vite, Tailwind CSS, React Router, Axios, Context API |
+| Backend | Python 3.11, FastAPI, Pydantic, SQLAlchemy, Uvicorn |
+| Database | PostgreSQL, pgvector, Alembic |
+| AI/ML | Sentence Transformers, `BAAI/bge-small-en-v1.5` (384 dimensions), Google GenAI SDK, Gemini |
+| Authentication | JWT (`python-jose`), password hashing (`passlib`/`bcrypt`), Authlib, Google OAuth |
+| Infrastructure / dev tools | Docker, Docker Compose, npm |
+
+Retrieval and context construction are implemented directly in the backend; the project does not use LangChain.
+
+## Project structure
+
+```text
 daily-code-snippet/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py            # All API routes, grouped by section (auth, user/prefs,
-│   │   │                      #   tags, snippets, favorites, heatmap, analytics,
-│   │   │                      #   recommendations, dashboard, reminders)
-│   │   ├── models.py          # SQLAlchemy models — see docs/ARCHITECTURE.md for the ER diagram
-│   │   ├── schemas.py         # Pydantic request/response schemas
-│   │   ├── auth.py            # JWT creation + Google OAuth registration
-│   │   ├── security.py        # Password hashing (bcrypt)
-│   │   ├── database.py        # SQLAlchemy engine, session, Base
-│   │   ├── dependencies.py    # get_current_user dependency
-│   │   ├── seed_data.py       # Idempotent starter-snippet seeding (runs on every boot if empty)
-│   │   └── topics_seed.py     # Idempotent seeding for the 22 onboarding topics
-│   ├── seed.py                 # CLI wrapper: `python seed.py` to seed manually
-│   ├── docker-compose.yml      # Local Postgres + backend, for when the Render external URL isn't reachable
+│   │   ├── main.py                 # FastAPI routes and application flows
+│   │   ├── models.py               # SQLAlchemy and pgvector models
+│   │   ├── schemas.py              # Request and response schemas
+│   │   ├── auth.py                 # JWT and Google OAuth configuration
+│   │   ├── security.py             # Password hashing helpers
+│   │   ├── database.py             # SQLAlchemy engine and sessions
+│   │   ├── dependencies.py         # Shared request dependencies
+│   │   ├── embedding_service.py    # BGE embedding model
+│   │   ├── rag_service.py          # Authorized semantic retrieval and RAG context
+│   │   ├── seed_data.py            # Idempotent starter-snippet seeding
+│   │   ├── topics_seed.py          # Curated onboarding topics
+│   │   └── email.py                # Optional Resend email adapter
+│   ├── alembic/
+│   │   └── versions/               # Database migrations, including pgvector storage
+│   ├── alembic.ini
+│   ├── docker-compose.yml          # Local PostgreSQL and backend services
+│   ├── Dockerfile
 │   ├── requirements.txt
-│   └── .env                    # ← Never commit this
-│
-├── frontend-react/             # ✅ Current frontend — React + Vite + Tailwind CSS
-│   ├── src/
-│   │   ├── pages/              # Login (serves /login + /signup), Home, Dashboard, MySnippets,
-│   │   │                       #   Favorites, Profile, Settings, Onboarding, Analytics,
-│   │   │                       #   AddSnippet, Calendar, Privacy, NotFound
-│   │   ├── components/
-│   │   │   ├── ui/             # Design-system primitives (Button, Card, Badge, Select, Dialog, ...)
-│   │   │   ├── Layout/         # AppShell — responsive sidebar/drawer shell
-│   │   │   ├── ThemeGallery/   # Theme picker dialog with live preview cards
-│   │   │   └── ...             # Sidebar, Header, Footer, SnippetCard, SearchBar, TagChip,
-│   │   │                       #   Pagination, Heatmap, Loader, Toast, Skeleton,
-│   │   │                       #   ProtectedRoute, ErrorBoundary
-│   │   ├── context/             # AuthContext, ThemeContext
-│   │   ├── hooks/                # useAuth, useTheme, useDebounce, useFetch, useToast
-│   │   ├── services/             # api.js (axios instance), authService, snippetService,
-│   │   │                         #   dashboardService, userService — every fetch call lives here
-│   │   ├── utils/                # prismSetup.js, langColors.js, jwt.js, tokenStorage.js, difficultyVariant.js
-│   │   ├── App.jsx               # Route definitions (lazy-loaded pages)
-│   │   └── main.jsx               # Providers + router entry point
-│   ├── .env.development         # VITE_API_BASE_URL for local dev
-│   ├── .env.production          # VITE_API_BASE_URL for the deployed backend
-│   ├── .env.example
-│   └── package.json
-│
+│   ├── seed.py                     # Optional seed command
+│   └── test_phase4_retrieval.py    # Manual semantic-retrieval integration script
+├── assests/                        # Existing product screenshot assets
 ├── docs/
-│   └── ARCHITECTURE.md          # Deep-dive: algorithms, theme engine, database ER diagram, security
-│
-└── legacy/frontend/              # 📦 Archived vanilla JS frontend — reference only,
-                                   #    not built or deployed.
+│   └── ARCHITECTURE.md              # Additional design and architecture notes
+├── legacy/
+│   └── frontend/                    # Archived vanilla frontend; not the active app
+├── frontend-react/
+│   ├── src/
+│   │   ├── components/             # Shared layout, snippet, and UI components
+│   │   ├── context/                # Authentication and theme state
+│   │   ├── hooks/
+│   │   ├── pages/                   # Home, Dashboard, Analytics, AddSnippet, etc.
+│   │   ├── services/                # API, auth, snippet, dashboard, user clients
+│   │   ├── styles/
+│   │   ├── utils/
+│   │   ├── App.jsx                  # Routes
+│   │   └── main.jsx                 # React entry point
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.js
+├── LICENSE
+└── README.md
 ```
 
----
-
-## 🗄️ Database Schema (summary)
+## Database overview
 
 | Table | Purpose |
-| :--- | :--- |
-| `users` | Auth + profile — includes `created_at`, `onboarding_completed` |
-| `snippets` | The core content — public/private, difficulty, category, computed `reading_time_minutes`/`author` |
-| `tags` / `snippet_tags` | Freeform, per-snippet labels (M2M) |
-| `topics` / `user_topics` | Curated onboarding taxonomy — 22 fixed topics (M2M with `users`) |
-| `reminder_settings` | One row per user — frequency + IANA timezone |
-| `favorites` | User ↔ snippet, drives the Favorites page |
-| `daily_snippets` | Rotation pin cache — one row per UTC day |
-| `activities` | Generic event log — favoriting *and* `viewed_daily_snippet` (the backbone of streaks/analytics) |
+| --- | --- |
+| `users` | Account identity, password/OAuth identifiers, onboarding state, and signup metadata |
+| `snippets` | Code snippets, visibility, ownership, language, category, difficulty, and explanation |
+| `tags`, `snippet_tags` | Reusable snippet tags and the many-to-many association |
+| `topics`, `user_topics` | Curated learning interests selected by users |
+| `reminder_settings` | Per-user reminder frequency and timezone |
+| `favorites` | User-to-snippet favorites |
+| `activities` | Learning and favorite activity used by the heatmap and analytics |
+| `daily_snippets` | One pinned public snippet per UTC date |
+| `snippet_embeddings` | Snippet text chunks, model identifiers, and 384-dimensional pgvector embeddings |
 
-Full column-level detail and the ER diagram are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+The full SQLAlchemy models and migration are in `backend/app/models.py` and `backend/alembic/versions/`.
 
----
+## Database and vector setup
 
-## ⚙️ Local Setup
+The embedding migration creates the pgvector extension, `snippet_embeddings` table, and an HNSW index using cosine distance. The stored `VECTOR(384)` values are generated with `BAAI/bge-small-en-v1.5`. A PostgreSQL installation must have pgvector available; `CREATE EXTENSION vector` must succeed before the database can use semantic search and RAG.
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+ and npm (for `frontend-react`)
-- PostgreSQL database — either the Render-hosted one via `DATABASE_URL`, or a local one via Docker (see below)
-- Google Cloud project with OAuth 2.0 credentials
-- Google AI Studio API key
+With the backend virtual environment active and the current directory set to `backend`, apply the migration:
 
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/yourusername/daily-code-snippet.git
-cd daily-code-snippet
+```powershell
+python -m alembic upgrade head
 ```
 
-### 2. Backend setup
+New snippets are embedded by the existing add-snippet flow. To add or refresh embeddings for existing snippets, run the backfill command from `backend`:
 
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # Mac/Linux
+```powershell
+python -m app.main backfill-embeddings
+```
 
+The first embedding operation may download the Sentence Transformers model. Embedding errors during snippet creation are logged; the snippet remains saved and can be retried by running the backfill.
+
+## Local setup
+
+### Prerequisites
+
+- Git.
+- Python 3.11.
+- PostgreSQL with pgvector installed and enabled.
+- Node.js and npm.
+- Google OAuth credentials (required by the backend auth configuration).
+- A Gemini API key for Gemini-backed generation.
+- Docker Desktop with Docker Compose is optional for the native setup and required only for the Compose option below.
+
+The first embedding operation may download the Sentence Transformers model.
+
+### 1. Get the source
+
+```powershell
+git clone https://github.com/shagunkimothi/daily-code-snippet.git
+Set-Location daily-code-snippet
+```
+
+### 2. Configure the backend
+
+Create `backend/.env` (do not commit it) with the local PostgreSQL and backend settings:
+
+```dotenv
+POSTGRES_USER=dailycode
+POSTGRES_PASSWORD=replace-with-a-local-password
+POSTGRES_DB=dailycode
+
+JWT_SECRET_KEY=replace-with-a-long-random-secret
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+SESSION_SECRET=replace-with-a-random-session-secret
+CRON_SECRET=replace-with-a-random-cron-secret
+
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/auth/google/callback
+FRONTEND_URL=http://127.0.0.1:5500
+
+GEMINI_API_KEY=your-gemini-api-key
+
+# Optional: email reminders and welcome email delivery
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=DailyCode <onboarding@resend.dev>
+```
+
+`JWT_SECRET_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are required by the backend at startup. `GEMINI_API_KEY` enables Gemini generation and RAG. `RESEND_API_KEY` is optional; without it, email sending is skipped. `SESSION_SECRET` has a development fallback, but configure a private value for a deployed environment.
+
+Docker Compose uses `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` to initialize PostgreSQL and constructs the backend `DATABASE_URL` using the internal `db` service hostname. If running the backend outside Compose, provide a reachable PostgreSQL `DATABASE_URL` yourself.
+
+### 3. Start PostgreSQL and the backend (choose one)
+
+The repository's Compose configuration uses a pgvector-enabled PostgreSQL image and is the simplest way to get a compatible local database. To run the backend without Docker, install PostgreSQL and a pgvector build compatible with that PostgreSQL version; the migration creates the extension and embedding table, but the installation must include pgvector and the database role must be allowed to create the extension.
+
+#### Option A: Run without Docker
+
+Install PostgreSQL and a pgvector build compatible with that PostgreSQL version, then start the local PostgreSQL service. Create a database and user (for example, using `psql` as a PostgreSQL administrator):
+
+```sql
+CREATE ROLE dailycode WITH LOGIN PASSWORD 'replace-with-a-local-password';
+CREATE DATABASE dailycode OWNER dailycode;
+```
+
+Check that pgvector is available in the target database:
+
+```sql
+\connect dailycode
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+If `CREATE EXTENSION` reports that the `vector` extension is unavailable, install the matching pgvector extension for your PostgreSQL installation before continuing. Alternatively, set `DATABASE_URL` to a reachable PostgreSQL instance where pgvector is installed.
+
+From the repository root in PowerShell, create a Python environment, install the backend requirements, and configure `backend/.env`:
+
+```powershell
+Set-Location backend
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-> **Windows note:** `zoneinfo` (used for timezone-aware reminders) has no built-in timezone database on Windows — `tzdata` is in `requirements.txt` specifically for this; without it, every timezone lookup silently falls back to UTC.
-
-### 3. Configure environment variables
-
-Create a `.env` file inside `backend/`:
+In `backend/.env`, use your local database URL and the required auth/AI settings:
 
 ```dotenv
-# JWT & Security
-JWT_SECRET_KEY=your_strong_secret_key
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-SESSION_SECRET=your_session_secret
-
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+DATABASE_URL=postgresql://dailycode:replace-with-a-local-password@127.0.0.1:5432/dailycode
+JWT_SECRET_KEY=replace-with-a-long-random-secret
+GOOGLE_CLIENT_ID=your-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/auth/google/callback
-
-# Database — see "Local database options" below
-DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
-
-# Gemini AI
-GEMINI_API_KEY=your_gemini_api_key
-
-# Frontend — where the Google OAuth callback redirects after login.
 FRONTEND_URL=http://127.0.0.1:5500
-
-# Set to "true" only on Render deployment
-RENDER=false
+GEMINI_API_KEY=your-gemini-api-key
+SESSION_SECRET=replace-with-a-random-session-secret
 ```
 
-> This file is never touched by the frontend or its build tooling — see [`frontend-react/.env.example`](frontend-react/.env.example) for the frontend's own (non-secret) environment variable.
+Apply the embedding migration and run the backend from the `backend` directory with the virtual environment active:
 
-#### Local database options
-
-- **Render's external URL** — simplest if your network allows it (some networks interfere with non-HTTPS encrypted traffic on nonstandard ports like Postgres's 5432, which shows up as an SSL-handshake failure with no other symptom).
-- **Docker Compose** — sidesteps that entirely by running Postgres locally:
-  ```bash
-  cd backend
-  docker-compose up --build
-  ```
-  Add `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` to `.env` (any values — this is a throwaway local DB); `docker-compose.yml`'s `backend` service overrides `DATABASE_URL` itself to point at the container, ignoring whatever's in `.env`.
-
-### 4. Seed the database
-
-```bash
-python seed.py
+```powershell
+alembic upgrade head
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Populates 10 starter public snippets and the 22 onboarding topics. This also happens **automatically on every backend boot** if either table is empty — `seed.py` is for convenience/manual re-runs, not a required step.
+The first migration needs permission to create the pgvector extension if it has not already been enabled. The backend initializes regular application tables and starter snippets/topics idempotently at startup. Embedding the first snippet may download the Sentence Transformers model.
 
-### 5. Start the backend
+#### Option B: Run PostgreSQL and backend with Docker Compose
 
-```bash
-uvicorn app.main:app --reload
+From the repository root in PowerShell:
+
+```powershell
+Set-Location backend
+docker compose build backend
+docker compose up -d db
+docker compose run --rm backend alembic upgrade head
+docker compose up -d backend
 ```
 
-API running at `http://127.0.0.1:8000` · Interactive docs at `http://127.0.0.1:8000/docs`
+Docker Compose uses the pgvector-enabled PostgreSQL image configured in `backend/docker-compose.yml`.
 
-### 6. Start the frontend
+With either option, the API runs at `http://127.0.0.1:8000`; interactive API documentation is at `http://127.0.0.1:8000/docs`.
 
-```bash
-cd frontend-react
-npm install
+### 4. Start the React frontend
+
+In a second terminal, from the repository root:
+
+```powershell
+Set-Location frontend-react
+npm ci
 npm run dev
 ```
 
-Then visit `http://localhost:5500/login`
+Open `http://127.0.0.1:5500`. The Vite server is pinned to port 5500 to match the backend's local CORS allowlist. The development API URL is configured in `frontend-react/.env.development`. To override it for your machine, create `frontend-react/.env.local` based on `.env.example` and set `VITE_API_BASE_URL`.
 
-Vite's dev server is pinned to **port 5500** on purpose — it's the only local-dev origin in the backend's CORS allowlist (`origins` in `backend/app/main.py`), alongside `:8000` for the backend itself.
+### Optional database and embedding commands
 
-<details>
-<summary>Browsing the archived legacy vanilla frontend (reference only)</summary>
+The backend seeds starter content on startup when the relevant tables are empty. To invoke the idempotent snippet seed manually, run the command for the backend mode you selected.
 
-```bash
-cd legacy/frontend
-python -m http.server 5500
+Native backend, from `backend` with the virtual environment active:
+
+```powershell
+python seed.py
 ```
 
-Then visit `http://127.0.0.1:5500/auth.html`. Its `config.js` still points at the real backend, so it will actually authenticate — kept purely for comparing the original vanilla implementation against `frontend-react`, not as a supported second frontend.
-</details>
+Docker Compose backend, from `backend`:
 
----
-
-## 🚀 Deployment
-
-### Backend → Render
-1. Connect your GitHub repo to [Render](https://render.com)
-2. Create a new **Web Service**, root directory: `backend`
-3. Build command: `pip install -r requirements.txt` · Start command: `uvicorn app.main:app --host 0.0.0.0 --port 10000`
-4. Add all `.env` variables in Render's **Environment** tab
-5. Set `RENDER=true`
-
-### Frontend → Vercel
-1. Connect repo to [Vercel](https://vercel.com), root directory `frontend-react`
-2. Build command: `npm run build` · Output directory: `dist`
-3. `VITE_API_BASE_URL` is already set via the committed `.env.production`
-4. Deploy, then **update `FRONTEND_URL` in the backend's Render environment** to the resulting Vercel domain root
-
-### Frontend → GitHub Pages
-1. `cd frontend-react && npm run build`, publish the `dist/` folder
-2. Same `FRONTEND_URL` note as above applies
-
-> The legacy vanilla frontend is archived, not deployed.
-
----
-
-## 🔑 API Endpoints
-
-### Auth
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/auth/signup` | ❌ | Register with email/password |
-| `POST` | `/auth/login` | ❌ | Login, returns JWT |
-| `GET` | `/auth/google/login` | ❌ | Redirect to Google OAuth |
-| `GET` | `/auth/google/callback` | ❌ | Google OAuth callback |
-
-### User Profile & Preferences
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/users/me` | ✅ | Profile + onboarding status + topics + reminder settings, in one call |
-| `GET` | `/topics` | ❌ | All 22 curated onboarding topics |
-| `POST` | `/users/me/topics` | ✅ | Replace selected topics (set-replace, not append) |
-| `GET` | `/users/me/reminders` | ✅ | Current reminder frequency + timezone |
-| `POST` | `/users/me/reminders` | ✅ | Update reminder frequency + timezone |
-| `POST` | `/users/me/onboarding/complete` | ✅ | Marks onboarding finished (or skipped) |
-| `POST` | `/users/me/password` | ✅ | Change password (rejects Google-only accounts with a clear message) |
-
-### Snippets
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/snippets/daily` | ❌ | Today's deterministically-rotated snippet; logs a `viewed_daily_snippet` activity if authenticated |
-| `GET` | `/snippets/random` | ❌ | Random public snippet |
-| `GET` | `/snippets/search` | ❌ | Search & filter (auth optional — includes your private snippets if logged in) |
-| `GET` | `/snippets/mine` | ✅ | Current user's own snippets |
-| `GET` | `/snippets/public` | ❌ | Public snippets only (guest-facing list) |
-| `GET` | `/snippets/private` | ✅ | Public snippets + your own private ones |
-| `POST` | `/snippets/add` | ✅ | Add a new snippet |
-| `GET` | `/snippets/{id}` | ❌ | Fetch one public snippet by id (used by recommendation click-through) |
-| `PATCH` | `/snippets/{id}/visibility` | ✅ | Toggle public/private — owner only (403 otherwise) |
-| `DELETE` | `/snippets/{id}` | ✅ | Delete a snippet — owner only (403 otherwise) |
-| `POST` | `/snippets/generate-ai` | ✅ | Generate a snippet with Gemini AI |
-
-### Tags & Favorites
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/tags` | ❌ | All available tags |
-| `POST` | `/tags` | ✅ | Create a new tag |
-| `GET` | `/favorites/me` | ✅ | Current user's favorited snippets |
-| `POST` | `/favorites/{id}` | ✅ | Favorite a snippet |
-| `DELETE` | `/favorites/{id}` | ✅ | Remove a favorite |
-
-### Insights
-| Method | Endpoint | Auth | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/heatmap/me` | ✅ | 365-day activity heatmap (streaks + daily counts) |
-| `GET` | `/analytics/me` | ✅ | Full learning analytics — streaks, weekly/monthly activity, category distribution, consistency %, trend |
-| `GET` | `/recommendations/me` | ✅ | Rule-based next-snippet recommendation + related suggestions + unexplored topics |
-| `GET` | `/dashboard/me` | ✅ | Dashboard stats (own snippets, favorites, this-week count) |
-
----
-
-## 🌱 How the Daily Snippet Works
-
-No scheduling or cron jobs required for the rotation itself. Every calendar day (UTC), the backend deterministically picks a snippet and pins it:
-
-```python
-day_index = date.today().toordinal()   # UTC
-offset = day_index % total_public_snippets
-snippet = public_snippets_ordered_by_id[offset]
+```powershell
+docker compose exec backend python seed.py
 ```
 
-- The pick is written to a `daily_snippets` table keyed by date — every request after the first for that day is a single indexed lookup, not a recomputation, so this scales to thousands of snippets without extra load
-- New public snippets always land at the end of the ordering (higher id), joining the rotation without disturbing anyone else's slot
-- Deleted/unpublished snippets simply drop out of the pool — the rotation closes around the gap on its own
-- No `random()` anywhere — same (day, snippet set) always yields the same pick, which is exactly what makes caching it safe
+To create or refresh embeddings for existing snippets, use the corresponding command:
 
-Full algorithm reasoning and the composite index behind it are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Native backend, from `backend` with the virtual environment active:
+
+```powershell
+python -m app.main backfill-embeddings
+```
+
+Docker Compose backend, from `backend`:
+
+```powershell
+docker compose exec backend python -m app.main backfill-embeddings
+```
+
+New snippets are embedded through the existing add-snippet flow. If embedding generation fails while a snippet is added, the snippet remains saved and the backend logs a warning; run the backfill command to retry.
+
+Stop the local services from `backend` with:
+
+```powershell
+docker compose down
+```
+
+This retains the database volume. `docker compose down -v` also deletes the local database volume and its data.
+
+## Environment variables
+
+| Variable | Required? | Purpose |
+| --- | --- | --- |
+| `POSTGRES_USER` | Yes for Compose | Local PostgreSQL username |
+| `POSTGRES_PASSWORD` | Yes for Compose | Local PostgreSQL password |
+| `POSTGRES_DB` | Yes for Compose | Local PostgreSQL database |
+| `DATABASE_URL` | Yes outside Compose | SQLAlchemy PostgreSQL connection URL; Compose sets it for the backend |
+| `JWT_SECRET_KEY` | Yes | JWT signing secret |
+| `JWT_ALGORITHM` | No | JWT algorithm; defaults to `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Token lifetime; defaults to 30 minutes |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | No | OAuth callback URL; defaults to local callback on port 8000 |
+| `SESSION_SECRET` | No | OAuth session cookie signing secret; has a development fallback |
+| `FRONTEND_URL` | No | Frontend destination after OAuth; defaults to the configured app URL |
+| `GEMINI_API_KEY` | For AI features | Gemini API authentication |
+| `RESEND_API_KEY` | No | Enables optional email delivery |
+| `EMAIL_FROM` | No | Sender identity for Resend; has a default |
+| `CRON_SECRET` | For scheduled reminders | Shared secret expected in the `X-Cron-Secret` header for `/internal/reminders/run` |
+| `VITE_API_BASE_URL` | Frontend | FastAPI base URL; development config points to `http://127.0.0.1:8000` |
+
+Keep secrets in the backend environment. Vite variables are public and must not contain secrets.
+
+The reminder route is not a scheduler by itself: an external hourly job must call it with the `X-Cron-Secret` header. No scheduled cloud job is included or claimed in this repository.
+
+## API highlights
+
+The complete live schema for a running local instance is available at `/docs` and `/openapi.json`.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | API health/status message |
+| `POST` | `/auth/signup` | Register with email and password |
+| `POST` | `/auth/login` | Authenticate and receive a JWT |
+| `GET` | `/auth/google/login` | Begin Google OAuth |
+| `GET` | `/auth/google/callback` | Complete Google OAuth |
+| `GET` | `/users/me` | Read the authenticated user's profile |
+| `GET` | `/topics` | List curated learning topics |
+| `POST` | `/users/me/topics` | Save learning interests |
+| `GET`, `POST` | `/users/me/reminders` | Read and save reminder preferences |
+| `POST` | `/users/me/onboarding/complete` | Mark onboarding complete |
+| `POST` | `/users/me/password` | Change the authenticated user's password |
+| `GET` | `/tags` | List available tags |
+| `GET` | `/snippets/search` | Keyword search, filters, and pagination |
+| `GET` | `/snippets/semantic-search` | Semantic search with similarity scores |
+| `GET` | `/snippets/daily` | Get today's UTC-pinned public snippet |
+| `GET` | `/snippets/random` | Get a random public snippet |
+| `GET` | `/snippets/public` | List public snippets |
+| `GET` | `/snippets/mine` | List the authenticated user's snippets |
+| `GET` | `/snippets/private` | List public snippets and the user's own private snippets |
+| `POST` | `/snippets/add` | Add a snippet |
+| `PATCH` | `/snippets/{id}/visibility` | Change visibility of an owned snippet |
+| `DELETE` | `/snippets/{id}` | Delete an owned snippet |
+| `POST` | `/snippets/generate-ai` | Generate a snippet draft from a topic and language |
+| `POST` | `/snippets/rag` | Generate a grounded answer from authorized retrieval |
+| `POST` | `/snippets/generate-rag` | Compatibility alias for the RAG endpoint |
+| `GET`, `POST`, `DELETE` | `/favorites/...` | List, add, or remove favorites |
+| `GET` | `/heatmap/me` | Read learning activity heatmap |
+| `GET` | `/analytics/me` | Read learning analytics |
+| `GET` | `/recommendations/me` | Get rule-based recommendations |
+| `GET` | `/dashboard/me` | Get dashboard data |
+| `POST` | `/internal/reminders/run` | Internal reminder dispatch entry point |
+
+Personal-library, preference, favorite, analytics, and RAG operations require authentication. Public browsing and conventional search can be used without an account; the backend enforces visibility in every applicable query.
+
+## Bulk import formats
+
+The existing Add Snippet bulk-import UI accepts JSON, CSV, and TXT files or pasted content. The frontend parses each format to a shared snippet representation and submits through the existing backend snippet API. Required fields are `title`, `language`, and `code`.
+
+### JSON
+
+Provide the existing structured array format:
+
+```json
+[
+  {
+    "title": "Binary Search",
+    "language": "C++",
+    "code": "int binarySearch(...) { ... }",
+    "explanation": "Searches a sorted array efficiently.",
+    "tags": ["binary-search", "array"]
+  }
+]
+```
+
+### CSV
+
+Use the columns `title,language,code,explanation,tags`. Quote values containing commas, quotes, or newlines. Separate tag names using `|`.
+
+```csv
+title,language,code,explanation,tags
+Binary Search,C++,"int binarySearch(...) { ... }","Searches a sorted array","binary-search|array"
+```
+
+### TXT
+
+Use labeled sections. Separate multiple snippets with a line containing `---`.
+
+```text
+TITLE: Binary Search
+LANGUAGE: C++
+TAGS: binary-search, array
+EXPLANATION:
+Searches a sorted array efficiently.
+
+CODE:
+int binarySearch(...) {
+    ...
+}
 
 ---
 
-## 🧭 Recommendations: Rule-Based Today, AI-Ready Tomorrow
+TITLE: Two Sum
+LANGUAGE: Python
+TAGS: array, hashmap
+EXPLANATION:
+Finds two numbers whose sum equals the target.
 
-`GET /recommendations/me` scores unviewed public snippets live, on request — no precomputed table, no staleness:
+CODE:
+def two_sum(nums, target):
+    ...
+```
 
-- **+2** if the snippet's language/category/tags match a topic you selected at onboarding (via direct match or a small curated alias map for topics like "DSA" that don't literally equal a snippet field)
-- **+1** if it shares a tag with something you've favorited
-- Already-viewed snippets and today's rotation pick are excluded
+The importer reports malformed content before submission and shows a parsed count/preview. Snippet embeddings use the existing backend embedding workflow; the backfill command can be used to retry or populate embeddings for existing records.
 
-This is deliberately swappable: once recommendations move to an LLM call (too slow/costly to run per page load), a `recommendations` table gets populated by a nightly batch job via a Render Cron Job, and the endpoint starts reading from that table instead of computing live. **The response shape doesn't change**, so the frontend built against v1 keeps working untouched when v2 ships.
+## Testing and validation
 
----
+The repository includes `backend/test_phase4_retrieval.py`, a manual integration script for a running API at `http://127.0.0.1:8000`. It checks natural-language semantic queries, returned similarity scores, guest access, authenticated owner access, private-snippet exclusion for other users, and request validation. It creates test users and a private snippet, so run it only against a disposable local database. The script imports `requests`, which is not listed in the backend requirements; install it in the active environment if needed:
 
-## 🔮 Future Enhancements
+```powershell
+python -m pip install requests
+python test_phase4_retrieval.py
+```
 
-- **Transactional email** — welcome emails and actual delivery of reminder notifications. Reminder frequency and timezone are already configurable in Settings (see **Reminder Preferences** above); the send/delivery pipeline itself isn't wired up yet.
+Manual verification performed during development:
 
----
+| Area | Result |
+| --- | --- |
+| Semantic retrieval | Passed natural-language queries with similarity scores; checked guest, snippet-owner, and other-user visibility. |
+| RAG generation | A relevant question returned a Gemini answer and source snippets. No-context handling and authorized-context filtering were also verified with mocked generation. |
+| React Ask Library | Passed a browser check of the generated answer and displayed source snippets. |
+| Bulk import | Valid JSON, CSV, and multi-snippet TXT imports passed; malformed input was rejected, and imported snippets received embeddings through the existing workflow. |
+| Frontend production build | `npm run build` passed during frontend implementation. |
 
-## 📦 Legacy Frontend Archive
+These are implementation-time checks, not a claim of a comprehensive automated test suite. The semantic retrieval script is the backend test file currently present; the frontend has no test script in `package.json`.
 
-`frontend-react/` is the active, production frontend — the only one built, deployed, and developed against going forward.
+There is no frontend test script in `frontend-react/package.json`. To run the frontend production build from `frontend-react`:
 
-The original vanilla HTML/CSS/JS frontend that preceded the React migration lives at [`legacy/frontend/`](legacy/frontend/), preserved exactly as it was (no refactors or fixes applied). It is:
+```powershell
+npm run build
+```
 
-- **Not used in production** — Vercel's root directory is `frontend-react`; nothing in `legacy/` is built or served live
-- **Kept for educational/reference purposes** — useful for comparing how a feature was implemented in plain JS versus its React port
-- Still runnable standalone locally (see **Local Setup** above), since its `config.js` points at the same backend
+FastAPI interactive API documentation is served at `/docs`.
 
----
+## Deployment
 
-## 📚 Further Reading
+This README documents local development only. The repository contains frontend environment configuration for different Vite modes, but that alone does not establish that a cloud deployment is currently configured or maintained. No hosted service or deployment workflow is claimed here.
 
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) covers, in depth: the daily-rotation algorithm and its scalability properties, the full 6-theme token system, the database ER diagram, the reminder-scheduling architecture (and why Render Cron over an in-process scheduler), the recommendation engine's v1→v2 upgrade path, and the security/performance decisions made along the way.
+## Future improvements
 
----
+Potential future work (not currently implemented) includes:
 
-## 📄 License
+- Hybrid keyword and semantic retrieval.
+- Reranking retrieved snippets.
+- Improved chunking for longer snippets.
+- Background embedding generation.
+- Streaming RAG responses and RAG evaluation.
+- More advanced personalization.
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+## Legacy frontend archive
+
+`legacy/frontend/` contains the earlier vanilla HTML/CSS/JavaScript frontend for historical reference. `frontend-react/` is the current application; the legacy frontend is not a second active frontend.
+
+## Further reading
+
+- [Architecture notes](docs/ARCHITECTURE.md)
+- [FastAPI documentation](https://fastapi.tiangolo.com/)
+- [pgvector](https://github.com/pgvector/pgvector)
+- [Sentence Transformers](https://www.sbert.net/)
+- [Google Gemini API](https://ai.google.dev/gemini-api/docs)
+
+## Author
+
+**Shagun Kimothi**
+
+## GitHub
+
+[shagunkimothi/daily-code-snippet](https://github.com/shagunkimothi/daily-code-snippet)
+
+## License
+
+See [LICENSE](LICENSE).

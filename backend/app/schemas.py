@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
@@ -65,6 +65,27 @@ class SnippetSearchResponse(BaseModel):
     total:    int
     page:     int
     per_page: int
+
+
+class SemanticSnippetResponse(SnippetResponse):
+    """A permitted snippet returned by pgvector semantic retrieval."""
+    similarity_score: float
+
+
+class SemanticSearchResponse(BaseModel):
+    query: str
+    snippets: list[SemanticSnippetResponse]
+
+
+class RagGenerationRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=500)
+    top_k: int = Field(5, ge=1, le=20)
+
+
+class RagGenerationResponse(BaseModel):
+    answer: str
+    grounded: bool
+    snippets: list[SemanticSnippetResponse]
 
 
 # ==========================================================

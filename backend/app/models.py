@@ -1,6 +1,7 @@
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, Table, Index
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, Table, Index, func
 from sqlalchemy.orm import relationship, backref
+from pgvector.sqlalchemy import Vector
 from .database import Base
 
 # ==========================================================
@@ -80,6 +81,12 @@ class Snippet(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner    = relationship("User", back_populates="snippets")
     tags     = relationship("Tag", secondary=snippet_tags, backref="snippets")
+    embedding_chunks = relationship(
+        "SnippetEmbedding",
+        back_populates="snippet",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     # Composite index backing the daily rotation engine's OFFSET-based pick
     # (WHERE is_public ORDER BY id OFFSET n) — keeps that query an index scan
@@ -106,6 +113,45 @@ class Snippet(Base):
         rather than skimming prose. Floored at 1 so nothing shows "0 min"."""
         words = len((self.code or "").split()) + len((self.explanation or "").split())
         return max(1, round(words / 130))
+
+
+class SnippetEmbedding(Base):
+    __tablename__ = "snippet_embeddings"
+
+    id = Column(Integer, primary_key=True)
+    snippet_id = Column(
+        Integer,
+        ForeignKey("snippets.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    chunk_text = Column(Text, nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    embedding_model = Column(String(255), nullable=False)
+    embedding = Column(Vector(384), nullable=False)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    snippet = relationship("Snippet", back_populates="embedding_chunks")
+
+    __table_args__ = (
+        Index(
+            "ix_snippet_embeddings_embedding_cosine",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+        Index(
+            "uq_snippet_embeddings_snippet_chunk",
+            "snippet_id",
+            "chunk_index",
+            unique=True,
+        ),
+    )
+
 
 # ==========================================================
 # FAVORITE

@@ -25,7 +25,7 @@ function resolveInitialTheme() {
   const stored = localStorage.getItem("theme");
   if (LEGACY_MIGRATION[stored]) return LEGACY_MIGRATION[stored];
   if (THEME_IDS.includes(stored)) return stored;
-  return "midnight";
+  return "paper";
 }
 
 export const ThemeContext = createContext(null);
@@ -56,7 +56,7 @@ export function ThemeProvider({ children }) {
     });
   }
 
-  const mode = THEMES.find((t) => t.id === theme)?.mode || "dark";
+  const mode = THEMES.find((t) => t.id === theme)?.mode || "light";
 
   return (
     <ThemeContext.Provider value={{ theme, mode, themes: THEMES, setTheme, toggleTheme }}>

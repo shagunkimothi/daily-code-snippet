@@ -16,6 +16,7 @@ export default function SnippetCard({
   collapsible = false,
   defaultExpanded = true,
   showBadges = true,
+  similarityScore,
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const codeRef = useRef(null);
@@ -65,6 +66,9 @@ export default function SnippetCard({
 
       {showBadges && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {typeof similarityScore === "number" && (
+            <Badge variant="primary">{Math.round(similarityScore * 100)}% semantic match</Badge>
+          )}
           <Badge variant={difficultyVariant(snippet.difficulty)}>{snippet.difficulty || "beginner"}</Badge>
           {snippet.category && <Badge variant="neutral">{snippet.category}</Badge>}
           {(snippet.tags || []).map((t) => (

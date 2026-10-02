@@ -26,6 +26,21 @@ export async function searchSnippets({ page = 1, perPage = 12, q, language, diff
   return res.data; // { total, page, snippets }
 }
 
+export async function semanticSearchSnippets({ query, topK = 5 }) {
+  const res = await api.get("/snippets/semantic-search", {
+    params: { q: query, top_k: topK },
+  });
+  return res.data;
+}
+
+export async function generateRagAnswer({ query, topK = 5 }) {
+  const res = await api.post("/snippets/rag", {
+    query,
+    top_k: topK,
+  });
+  return res.data;
+}
+
 export async function getDailySnippet() {
   const res = await api.get("/snippets/daily");
   return res.data;

@@ -48,6 +48,7 @@ export default function Home() {
   const { token, logout } = useAuth();
 
   const [search, setSearch] = useState("");
+  const [semanticMode, setSemanticMode] = useState(false);
   const [language, setLanguage] = useState("");
   const [difficulty, setDifficulty] = useState("");
   const [activeTag, setActiveTag] = useState("");
@@ -67,6 +68,7 @@ export default function Home() {
 
   const [galleryResults, setGalleryResults] = useState([]);
   const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState("");
   const [total, setTotal] = useState(0);
   const [galleryFavOverrides, setGalleryFavOverrides] = useState({});
 
@@ -146,22 +148,29 @@ export default function Home() {
     if (viewMode !== "gallery") return undefined;
     let cancelled = false;
     setGalleryLoading(true);
-    snippetService
-      .searchSnippets({
-        page,
-        perPage: PER_PAGE,
-        q: debouncedSearch.trim(),
-        language,
-        difficulty,
-        tag: activeTag,
-      })
+    setGalleryError("");
+    const request = semanticMode && debouncedSearch.trim()
+      ? snippetService.semanticSearchSnippets({ query: debouncedSearch.trim(), topK: PER_PAGE })
+      : snippetService.searchSnippets({
+          page,
+          perPage: PER_PAGE,
+          q: debouncedSearch.trim(),
+          language,
+          difficulty,
+          tag: activeTag,
+        });
+    request
       .then((data) => {
         if (cancelled) return;
         setGalleryResults(data.snippets || []);
-        setTotal(data.total || 0);
+        setTotal(semanticMode ? (data.snippets || []).length : (data.total || 0));
       })
-      .catch(() => {
-        if (!cancelled) setGalleryResults([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setGalleryResults([]);
+          setTotal(0);
+          setGalleryError(err.message || "Semantic search is unavailable. Please try again.");
+        }
       })
       .finally(() => {
         if (!cancelled) setGalleryLoading(false);
@@ -169,7 +178,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [viewMode, page, debouncedSearch, language, difficulty, activeTag]);
+  }, [viewMode, page, debouncedSearch, language, difficulty, activeTag, semanticMode]);
 
   function handleTagClick(tagName) {
     setActiveTag(tagName);
@@ -275,6 +284,17 @@ export default function Home() {
             <Select value={difficulty} onChange={setDifficulty} options={DIFFICULTY_OPTIONS} placeholder="All Levels" className="flex-1" />
           </SearchBar>
 
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <Button
+              variant={semanticMode ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => setSemanticMode((enabled) => !enabled)}
+            >
+              {semanticMode ? "Semantic search on" : "Use semantic search"}
+            </Button>
+            {semanticMode && <span>Search by meaning; language, level, and tag filters apply to keyword search.</span>}
+          </div>
+
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
             <span className="flex-shrink-0 text-xs text-muted">Tags:</span>
             <TagChip label="All" active={activeTag === ""} onClick={() => handleTagClick("")} />
@@ -292,7 +312,7 @@ export default function Home() {
 
       {viewMode === "gallery" && (
         <p className="mb-1.5 min-h-[18px] text-[13px] text-muted">
-          {total} result{total !== 1 ? "s" : ""} found
+          {total} {semanticMode ? "semantic " : ""}result{total !== 1 ? "s" : ""} found
         </p>
       )}
 
@@ -338,6 +358,13 @@ export default function Home() {
         <div>
           {galleryLoading ? (
             <Loader label="Searching..." />
+          ) : galleryError ? (
+            <EmptyState
+              className="my-4"
+              icon={SearchIcon}
+              title="Search could not be completed"
+              description={galleryError}
+            />
           ) : galleryResults.length === 0 ? (
             <EmptyState
               className="my-4"
@@ -350,6 +377,7 @@ export default function Home() {
               <SnippetCard
                 key={s.id}
                 snippet={s}
+                similarityScore={semanticMode ? s.similarity_score : undefined}
                 actions={
                   token ? (
                     <GalleryFavButton
@@ -362,13 +390,15 @@ export default function Home() {
               />
             ))
           )}
-          <Pagination
-            page={page}
-            total={total}
-            perPage={PER_PAGE}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => p + 1)}
-          />
+          {!semanticMode && (
+            <Pagination
+              page={page}
+              total={total}
+              perPage={PER_PAGE}
+              onPrev={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => p + 1)}
+            />
+          )}
         </div>
       )}
 
